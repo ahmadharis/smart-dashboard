@@ -43,7 +43,8 @@ export function TenantSelector() {
         const data = await response.json()
         setTenants(data)
 
-        if (data.length === 1) {
+        const errorParam = searchParams.get("error")
+        if (data.length === 1 && errorParam !== "access_denied") {
           router.push(`/${data[0].tenant_id}`)
           return
         }
