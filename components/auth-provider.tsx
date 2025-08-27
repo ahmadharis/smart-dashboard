@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react"
+import { createContext, useContext, useEffect, useState, useCallback, useRef, type ReactNode } from "react"
 import { createClient } from "@/lib/supabase/client"
 import type { User } from "@supabase/supabase-js"
 
@@ -32,6 +32,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
   const [tenantAccess, setTenantAccess] = useState<TenantAccess>({})
   const supabase = createClient()
+
+  const processedSessionRef = useRef<string | null>(null)
 
   // Load cached permissions
   const loadCachedPermissions = (currentUser: User | null): TenantAccess => {
@@ -95,14 +97,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  // Refresh permissions from server
-  const refreshPermissions = async () => {
+  const refreshPermissions = useCallback(async () => {
     if (!user) return
 
     const freshPermissions = await fetchTenantPermissions(user)
     setTenantAccess(freshPermissions)
     saveCachedPermissions(freshPermissions, user.id)
-  }
+  }, [user])
 
   // Check if user has access to tenant
   const checkTenantAccess = (tenantId: string): boolean => {
@@ -121,6 +122,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(currentUser)
 
         if (currentUser) {
+          processedSessionRef.current = currentUser.id
+
           // Load cached permissions first for instant access
           const cached = loadCachedPermissions(currentUser)
           setTenantAccess(cached)
@@ -135,6 +138,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // Clear cache if no user
           localStorage.removeItem(CACHE_KEY)
           setTenantAccess({})
+          processedSessionRef.current = null
         }
       } catch (error) {
         console.error("[v0] Error initializing auth:", error)
@@ -152,22 +156,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.log("[v0] Auth state changed:", event)
 
       if (event === "SIGNED_IN" && session?.user) {
-        setUser(session.user)
-        // Fetch fresh permissions on login
-        const fresh = await fetchTenantPermissions(session.user)
-        setTenantAccess(fresh)
-        saveCachedPermissions(fresh, session.user.id)
+        if (processedSessionRef.current !== session.user.id) {
+          setUser(session.user)
+          processedSessionRef.current = session.user.id
+
+          // Fetch fresh permissions on login
+          const fresh = await fetchTenantPermissions(session.user)
+          setTenantAccess(fresh)
+          saveCachedPermissions(fresh, session.user.id)
+        }
       } else if (event === "SIGNED_OUT") {
         setUser(null)
         setTenantAccess({})
         localStorage.removeItem(CACHE_KEY)
+        processedSessionRef.current = null
       }
     })
 
     return () => subscription.unsubscribe()
   }, [])
 
-  // Periodic refresh of permissions
   useEffect(() => {
     if (!user) return
 
@@ -177,7 +185,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }, CACHE_DURATION)
 
     return () => clearInterval(interval)
-  }, [user])
+  }, [user, refreshPermissions])
 
   return (
     <AuthContext.Provider
