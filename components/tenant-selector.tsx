@@ -18,6 +18,7 @@ export function TenantSelector() {
   const [selectedTenant, setSelectedTenant] = useState<string>("")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string>("")
+  const [isAccessDenied, setIsAccessDenied] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -26,8 +27,9 @@ export function TenantSelector() {
     const tenantParam = searchParams.get("tenant")
 
     if (errorParam === "access_denied" && tenantParam) {
+      setIsAccessDenied(true)
       setError(
-        `Access denied: You don't have permission to access tenant "${tenantParam}". Please select a different tenant or contact your administrator.`,
+        `You don't have permission to access the requested tenant. Please select a tenant you have access to below, or contact your administrator for assistance.`,
       )
     }
 
@@ -41,7 +43,6 @@ export function TenantSelector() {
         const data = await response.json()
         setTenants(data)
 
-        // If only one tenant, auto-redirect to tenant home page
         if (data.length === 1) {
           router.push(`/${data[0].tenant_id}`)
           return
@@ -60,7 +61,6 @@ export function TenantSelector() {
 
   const handleContinue = () => {
     if (selectedTenant) {
-      // Store selected tenant in localStorage for future visits
       localStorage.setItem("selectedTenant", selectedTenant)
       router.push(`/${selectedTenant}`)
     }
@@ -91,9 +91,12 @@ export function TenantSelector() {
             </CardHeader>
             <CardContent className="space-y-4">
               {error && (
-                <Alert className="border-red-200 bg-red-50">
-                  <AlertCircle className="h-4 w-4 text-red-600" />
-                  <AlertDescription className="text-red-800">{error}</AlertDescription>
+                <Alert className={isAccessDenied ? "border-red-500 bg-red-50 shadow-lg" : "border-red-200 bg-red-50"}>
+                  <AlertCircle className={`h-4 w-4 ${isAccessDenied ? "text-red-700" : "text-red-600"}`} />
+                  <AlertDescription className={`${isAccessDenied ? "text-red-900 font-medium" : "text-red-800"}`}>
+                    {isAccessDenied && <div className="font-semibold text-red-900 mb-1">Access Denied</div>}
+                    {error}
+                  </AlertDescription>
                 </Alert>
               )}
 
