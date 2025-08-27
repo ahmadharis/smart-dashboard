@@ -21,7 +21,6 @@ export function ProtectedRoute({ children, tenantId }: ProtectedRouteProps) {
     if (isLoading) return
 
     if (!user) {
-      console.log("[v0] No user found, redirecting to login")
       router.push("/auth/login")
       return
     }
@@ -51,7 +50,6 @@ export function ProtectedRoute({ children, tenantId }: ProtectedRouteProps) {
 
   const hasAccess = checkTenantAccess(tenantId)
   if (!hasAccess) {
-    console.log("[v0] No tenant access, showing access denied page")
     return <AccessDenied deniedTenantId={tenantId} />
   }
 

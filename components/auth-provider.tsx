@@ -47,7 +47,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const isSameUser = cacheData.userId === currentUser.id
 
         if (!isExpired && isSameUser) {
-          console.log("[v0] Loaded cached tenant permissions:", cacheData.tenantAccess)
           return cacheData.tenantAccess
         }
       }
@@ -66,7 +65,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         userId,
       }
       localStorage.setItem(CACHE_KEY, JSON.stringify(cacheData))
-      console.log("[v0] Saved tenant permissions to cache:", permissions)
     } catch (error) {
       console.error("[v0] Error saving cached permissions:", error)
     }
@@ -74,7 +72,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const fetchTenantPermissions = async (currentUser: User): Promise<TenantAccess> => {
     try {
-      console.log("[v0] Fetching fresh tenant permissions from server")
       const { data, error } = await supabase.from("user_tenants").select("tenant_id").eq("user_id", currentUser.id)
 
       if (error) {
@@ -87,7 +84,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         permissions[row.tenant_id] = true
       })
 
-      console.log("[v0] Fetched tenant permissions:", permissions)
       return permissions
     } catch (error) {
       console.error("[v0] Error fetching tenant permissions:", error)
@@ -105,7 +101,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const checkTenantAccess = (tenantId: string): boolean => {
     const hasAccess = tenantAccess[tenantId] === true
-    console.log("[v0] Checking tenant access:", { tenantId, hasAccess, cachedPermissions: tenantAccess })
     return hasAccess
   }
 
@@ -147,7 +142,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       const currentStateKey = `${event}-${session?.user?.id || "null"}`
       if (previousAuthStateRef.current !== currentStateKey) {
-        console.log("[v0] Auth state changed:", event)
         previousAuthStateRef.current = currentStateKey
       }
 
