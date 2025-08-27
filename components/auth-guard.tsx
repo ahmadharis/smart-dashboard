@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { createBrowserClient } from "@supabase/ssr"
 import type { User } from "@supabase/supabase-js"
@@ -16,6 +16,58 @@ interface AuthGuardProps {
   requireAuth?: boolean
 }
 
+const CACHE_KEY_PREFIX = "tenant_access_"
+const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
+
+interface CachedAccess {
+  hasAccess: boolean
+  timestamp: number
+  userId: string
+  tenantId: string
+}
+
+const getCachedAccess = (userId: string, tenantId: string): boolean | null => {
+  try {
+    const cached = localStorage.getItem(`${CACHE_KEY_PREFIX}${userId}_${tenantId}`)
+    if (!cached) return null
+
+    const data: CachedAccess = JSON.parse(cached)
+    const isExpired = Date.now() - data.timestamp > CACHE_DURATION
+
+    if (isExpired || data.userId !== userId || data.tenantId !== tenantId) {
+      localStorage.removeItem(`${CACHE_KEY_PREFIX}${userId}_${tenantId}`)
+      return null
+    }
+
+    return data.hasAccess
+  } catch {
+    return null
+  }
+}
+
+const setCachedAccess = (userId: string, tenantId: string, hasAccess: boolean) => {
+  try {
+    const data: CachedAccess = {
+      hasAccess,
+      timestamp: Date.now(),
+      userId,
+      tenantId,
+    }
+    localStorage.setItem(`${CACHE_KEY_PREFIX}${userId}_${tenantId}`, JSON.stringify(data))
+  } catch {
+    // Ignore localStorage errors
+  }
+}
+
+const clearUserCache = (userId: string) => {
+  try {
+    const keys = Object.keys(localStorage).filter((key) => key.startsWith(CACHE_KEY_PREFIX) && key.includes(userId))
+    keys.forEach((key) => localStorage.removeItem(key))
+  } catch {
+    // Ignore localStorage errors
+  }
+}
+
 export function AuthGuard({ children, tenantId, requireAuth = false }: AuthGuardProps) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
@@ -23,32 +75,38 @@ export function AuthGuard({ children, tenantId, requireAuth = false }: AuthGuard
   const [error, setError] = useState<string>("")
   const router = useRouter()
 
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  const supabase = useMemo(
+    () => createBrowserClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!),
+    [],
   )
 
-  useEffect(() => {
-    checkAuth()
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "SIGNED_IN" && session?.user) {
-        checkAuth()
-      } else if (event === "SIGNED_OUT") {
-        setUser(null)
-        setHasAccess(false)
-        if (requireAuth) {
-          setError("authentication_required")
-        }
+  const checkTenantAccess = useCallback(
+    async (userId: string): Promise<boolean> => {
+      // Check cache first
+      const cachedResult = getCachedAccess(userId, tenantId)
+      if (cachedResult !== null) {
+        return cachedResult
       }
-    })
 
-    return () => subscription.unsubscribe()
-  }, [tenantId])
+      // Query database if not cached
+      const { data: tenantAccess, error: accessError } = await supabase
+        .from("user_tenants")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("tenant_id", tenantId)
+        .single()
 
-  const checkAuth = async () => {
+      const hasAccess = !accessError && !!tenantAccess
+
+      // Cache the result
+      setCachedAccess(userId, tenantId, hasAccess)
+
+      return hasAccess
+    },
+    [supabase, tenantId],
+  )
+
+  const checkAuth = useCallback(async () => {
     try {
       const {
         data: { user },
@@ -67,15 +125,9 @@ export function AuthGuard({ children, tenantId, requireAuth = false }: AuthGuard
         return
       }
 
-      // Check tenant access
-      const { data: tenantAccess, error: accessError } = await supabase
-        .from("user_tenants")
-        .select("id")
-        .eq("user_id", user.id)
-        .eq("tenant_id", tenantId)
-        .single()
+      const userHasAccess = await checkTenantAccess(user.id)
 
-      if (accessError || !tenantAccess) {
+      if (!userHasAccess) {
         setError("access_denied")
         setLoading(false)
         return
@@ -89,7 +141,34 @@ export function AuthGuard({ children, tenantId, requireAuth = false }: AuthGuard
     } finally {
       setLoading(false)
     }
-  }
+  }, [supabase, requireAuth, checkTenantAccess])
+
+  useEffect(() => {
+    checkAuth()
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_IN" && session?.user) {
+        clearUserCache(session.user.id)
+        checkAuth()
+      } else if (event === "SIGNED_OUT") {
+        setUser(null)
+        setHasAccess(false)
+        try {
+          const keys = Object.keys(localStorage).filter((key) => key.startsWith(CACHE_KEY_PREFIX))
+          keys.forEach((key) => localStorage.removeItem(key))
+        } catch {
+          // Ignore localStorage errors
+        }
+        if (requireAuth) {
+          setError("authentication_required")
+        }
+      }
+    })
+
+    return () => subscription.unsubscribe()
+  }, [checkAuth, supabase, requireAuth])
 
   const handleLoginSuccess = () => {
     setError("")
