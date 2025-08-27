@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useEffect, useState, useMemo, useCallback } from "react"
+import { useEffect, useState, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { createBrowserClient } from "@supabase/ssr"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -70,69 +70,66 @@ export function AuthGuard({ children, tenantId, requireAuth = false }: AuthGuard
     [], // Empty dependency array for stable client
   )
 
-  const checkTenantAccess = useCallback(
-    async (currentUser: any, currentTenantId: string) => {
-      console.log("[v0] checkTenantAccess called with:", {
-        userId: currentUser?.id,
-        tenantId: currentTenantId,
-        requireAuth,
-      })
+  const checkTenantAccess = async (currentUser: any, currentTenantId: string) => {
+    console.log("[v0] checkTenantAccess called with:", {
+      userId: currentUser?.id,
+      tenantId: currentTenantId,
+      requireAuth,
+    })
 
-      if (!requireAuth) {
-        console.log("[v0] Auth not required, granting access")
-        setHasAccess(true)
-        return
+    if (!requireAuth) {
+      console.log("[v0] Auth not required, granting access")
+      setHasAccess(true)
+      return
+    }
+
+    if (!currentUser) {
+      console.log("[v0] No user found, authentication required")
+      setError("authentication_required")
+      return
+    }
+
+    // Check cache first
+    const cachedResult = getCachedAccess(currentUser.id, currentTenantId)
+    console.log("[v0] Cache check result:", cachedResult)
+    if (cachedResult !== null) {
+      console.log("[v0] Using cached result:", cachedResult)
+      setHasAccess(cachedResult)
+      if (!cachedResult) {
+        setError("access_denied")
       }
+      return
+    }
 
-      if (!currentUser) {
-        console.log("[v0] No user found, authentication required")
-        setError("authentication_required")
-        return
+    // Only query database if not cached
+    try {
+      console.log("[v0] Querying user_tenants table for:", { user_id: currentUser.id, tenant_id: currentTenantId })
+
+      const { data: tenantAccess, error: accessError } = await supabase
+        .from("user_tenants")
+        .select("id")
+        .eq("user_id", currentUser.id)
+        .eq("tenant_id", currentTenantId)
+        .single()
+
+      console.log("[v0] Database query result:", { data: tenantAccess, error: accessError })
+
+      const userHasAccess = !accessError && !!tenantAccess
+      console.log("[v0] Final access decision:", userHasAccess)
+
+      // Cache the result
+      setCachedAccess(currentUser.id, currentTenantId, userHasAccess)
+      setHasAccess(userHasAccess)
+
+      if (!userHasAccess) {
+        console.log("[v0] Access denied, setting error")
+        setError("access_denied")
       }
-
-      // Check cache first
-      const cachedResult = getCachedAccess(currentUser.id, currentTenantId)
-      console.log("[v0] Cache check result:", cachedResult)
-      if (cachedResult !== null) {
-        console.log("[v0] Using cached result:", cachedResult)
-        setHasAccess(cachedResult)
-        if (!cachedResult) {
-          setError("access_denied")
-        }
-        return
-      }
-
-      // Only query database if not cached
-      try {
-        console.log("[v0] Querying user_tenants table for:", { user_id: currentUser.id, tenant_id: currentTenantId })
-
-        const { data: tenantAccess, error: accessError } = await supabase
-          .from("user_tenants")
-          .select("id")
-          .eq("user_id", currentUser.id)
-          .eq("tenant_id", currentTenantId)
-          .single()
-
-        console.log("[v0] Database query result:", { data: tenantAccess, error: accessError })
-
-        const userHasAccess = !accessError && !!tenantAccess
-        console.log("[v0] Final access decision:", userHasAccess)
-
-        // Cache the result
-        setCachedAccess(currentUser.id, currentTenantId, userHasAccess)
-        setHasAccess(userHasAccess)
-
-        if (!userHasAccess) {
-          console.log("[v0] Access denied, setting error")
-          setError("access_denied")
-        }
-      } catch (error) {
-        console.error("[v0] Tenant access check error:", error)
-        setError("auth_error")
-      }
-    },
-    [requireAuth, supabase],
-  )
+    } catch (error) {
+      console.error("[v0] Tenant access check error:", error)
+      setError("auth_error")
+    }
+  }
 
   useEffect(() => {
     let mounted = true
@@ -187,7 +184,7 @@ export function AuthGuard({ children, tenantId, requireAuth = false }: AuthGuard
     if (!isLoading && user) {
       checkTenantAccess(user, tenantId)
     }
-  }, [user, tenantId, requireAuth, isLoading, checkTenantAccess])
+  }, [user, tenantId, requireAuth, isLoading])
 
   const handleLoginSuccess = () => {
     setError("")
