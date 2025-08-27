@@ -5,7 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Building2, ArrowRight } from "lucide-react"
+import { Building2, ArrowRight, AlertCircle } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 interface Tenant {
   tenant_id: string
@@ -21,8 +22,17 @@ export function TenantSelector() {
   const searchParams = useSearchParams()
 
   useEffect(() => {
+    const errorParam = searchParams.get("error")
+    const tenantParam = searchParams.get("tenant")
+
+    if (errorParam === "access_denied" && tenantParam) {
+      setError(
+        `Access denied: You don't have permission to access tenant "${tenantParam}". Please select a different tenant or contact your administrator.`,
+      )
+    }
+
     fetchTenants()
-  }, [])
+  }, [searchParams])
 
   const fetchTenants = async () => {
     try {
@@ -80,7 +90,12 @@ export function TenantSelector() {
               <CardDescription>Select a tenant to continue to the home page</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {error && <div className="text-sm text-red-500 bg-red-50 p-3 rounded-md">{error}</div>}
+              {error && (
+                <Alert className="border-red-200 bg-red-50">
+                  <AlertCircle className="h-4 w-4 text-red-600" />
+                  <AlertDescription className="text-red-800">{error}</AlertDescription>
+                </Alert>
+              )}
 
               <Select value={selectedTenant} onValueChange={setSelectedTenant}>
                 <SelectTrigger>
