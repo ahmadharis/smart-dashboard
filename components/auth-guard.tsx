@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useEffect, useState, useMemo } from "react"
+import { useEffect, useState, useMemo, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { createBrowserClient } from "@supabase/ssr"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -67,7 +67,55 @@ export function AuthGuard({ children, tenantId, requireAuth = false }: AuthGuard
 
   const supabase = useMemo(
     () => createBrowserClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!),
-    [],
+    [], // Empty dependency array for stable client
+  )
+
+  const checkTenantAccess = useCallback(
+    async (currentUser: any, currentTenantId: string) => {
+      if (!requireAuth) {
+        setHasAccess(true)
+        return
+      }
+
+      if (!currentUser) {
+        setError("authentication_required")
+        return
+      }
+
+      // Check cache first
+      const cachedResult = getCachedAccess(currentUser.id, currentTenantId)
+      if (cachedResult !== null) {
+        setHasAccess(cachedResult)
+        if (!cachedResult) {
+          setError("access_denied")
+        }
+        return
+      }
+
+      // Only query database if not cached
+      try {
+        const { data: tenantAccess, error: accessError } = await supabase
+          .from("user_tenants")
+          .select("id")
+          .eq("user_id", currentUser.id)
+          .eq("tenant_id", currentTenantId)
+          .single()
+
+        const userHasAccess = !accessError && !!tenantAccess
+
+        // Cache the result
+        setCachedAccess(currentUser.id, currentTenantId, userHasAccess)
+        setHasAccess(userHasAccess)
+
+        if (!userHasAccess) {
+          setError("access_denied")
+        }
+      } catch (error) {
+        console.error("Tenant access check error:", error)
+        setError("auth_error")
+      }
+    },
+    [requireAuth, supabase],
   )
 
   useEffect(() => {
@@ -120,55 +168,10 @@ export function AuthGuard({ children, tenantId, requireAuth = false }: AuthGuard
   }, [supabase])
 
   useEffect(() => {
-    const checkTenantAccess = async () => {
-      if (!requireAuth) {
-        setHasAccess(true)
-        return
-      }
-
-      if (!user) {
-        setError("authentication_required")
-        return
-      }
-
-      // Check cache first
-      const cachedResult = getCachedAccess(user.id, tenantId)
-      if (cachedResult !== null) {
-        setHasAccess(cachedResult)
-        if (!cachedResult) {
-          setError("access_denied")
-        }
-        return
-      }
-
-      // Only query database if not cached
-      try {
-        const { data: tenantAccess, error: accessError } = await supabase
-          .from("user_tenants")
-          .select("id")
-          .eq("user_id", user.id)
-          .eq("tenant_id", tenantId)
-          .single()
-
-        const userHasAccess = !accessError && !!tenantAccess
-
-        // Cache the result
-        setCachedAccess(user.id, tenantId, userHasAccess)
-        setHasAccess(userHasAccess)
-
-        if (!userHasAccess) {
-          setError("access_denied")
-        }
-      } catch (error) {
-        console.error("Tenant access check error:", error)
-        setError("auth_error")
-      }
+    if (!isLoading && user) {
+      checkTenantAccess(user, tenantId)
     }
-
-    if (!isLoading) {
-      checkTenantAccess()
-    }
-  }, [user, tenantId, requireAuth, isLoading, supabase]) // Only depend on stable values
+  }, [user, tenantId, requireAuth, isLoading, checkTenantAccess])
 
   const handleLoginSuccess = () => {
     setError("")
