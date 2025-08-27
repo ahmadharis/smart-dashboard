@@ -15,10 +15,12 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { User, LogOut, Settings } from "lucide-react"
 import { useRouter } from "next/navigation"
 import type { User as SupabaseUser } from "@supabase/supabase-js"
+import { LoginModal } from "./login-modal"
 
 export function UserNav() {
   const [user, setUser] = useState<SupabaseUser | null>(null)
   const [loading, setLoading] = useState(true)
+  const [showLoginModal, setShowLoginModal] = useState(false)
   const router = useRouter()
   const supabase = createClient()
 
@@ -56,11 +58,14 @@ export function UserNav() {
 
   if (!user) {
     return (
-      <div className="flex items-center space-x-2">
-        <Button variant="ghost" asChild>
-          <a href="/auth/login">Login</a>
-        </Button>
-      </div>
+      <>
+        <div className="flex items-center space-x-2">
+          <Button variant="ghost" onClick={() => setShowLoginModal(true)}>
+            Login
+          </Button>
+        </div>
+        <LoginModal open={showLoginModal} onOpenChange={setShowLoginModal} />
+      </>
     )
   }
 
