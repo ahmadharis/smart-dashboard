@@ -30,7 +30,7 @@ export default function TenantHomePage({ params }: HomePageProps) {
 
           {/* Feature Cards */}
           <div className="grid md:grid-cols-3 gap-6 mb-12">
-            <Card className="hover:shadow-lg transition-shadow">
+            <Card className="hover:shadow-lg transition-shadow flex flex-col h-full">
               <CardHeader>
                 <div className="flex items-center gap-3">
                   <BarChart3 className="h-8 w-8 text-primary" />
@@ -40,14 +40,14 @@ export default function TenantHomePage({ params }: HomePageProps) {
                   Create beautiful, interactive dashboards from your XML data with multiple chart types.
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="mt-auto">
                 <Link href={`/${tenantId}/dashboard`}>
                   <Button className="w-full">View Dashboards</Button>
                 </Link>
               </CardContent>
             </Card>
 
-            <Card className="hover:shadow-lg transition-shadow">
+            <Card className="hover:shadow-lg transition-shadow flex flex-col h-full">
               <CardHeader>
                 <div className="flex items-center gap-3">
                   <Database className="h-8 w-8 text-primary" />
@@ -57,7 +57,7 @@ export default function TenantHomePage({ params }: HomePageProps) {
                   Manage your dashboards, data files, and upload new XML data for analysis.
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="mt-auto">
                 <Link href={`/${tenantId}/manage`}>
                   <Button variant="outline" className="w-full bg-transparent">
                     Data Management
@@ -66,7 +66,7 @@ export default function TenantHomePage({ params }: HomePageProps) {
               </CardContent>
             </Card>
 
-            <Card className="hover:shadow-lg transition-shadow">
+            <Card className="hover:shadow-lg transition-shadow flex flex-col h-full">
               <CardHeader>
                 <div className="flex items-center gap-3">
                   <FileText className="h-8 w-8 text-primary" />
@@ -76,7 +76,7 @@ export default function TenantHomePage({ params }: HomePageProps) {
                   Learn how to integrate with our API for automated data uploads and retrieval.
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="mt-auto">
                 <Link href={`/${tenantId}/api-docs`}>
                   <Button variant="outline" className="w-full bg-transparent">
                     API Documentation
