@@ -9,6 +9,7 @@ interface ChartTypeSelectorProps {
   currentType: string
   onTypeChange: (type: string) => void
   disabled?: boolean
+  isAuthenticated?: boolean
 }
 
 const chartTypes = [
@@ -18,7 +19,12 @@ const chartTypes = [
   { value: "pie", label: "Pie", icon: PieChart },
 ]
 
-export function ChartTypeSelector({ currentType, onTypeChange, disabled }: ChartTypeSelectorProps) {
+export function ChartTypeSelector({
+  currentType,
+  onTypeChange,
+  disabled,
+  isAuthenticated = true,
+}: ChartTypeSelectorProps) {
   const [isUpdating, setIsUpdating] = useState(false)
 
   const currentChart = chartTypes.find((type) => type.value === currentType) || chartTypes[0]
@@ -38,31 +44,44 @@ export function ChartTypeSelector({ currentType, onTypeChange, disabled }: Chart
     }
   }
 
+  const isDisabled = disabled || isUpdating || !isAuthenticated
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button
           variant="ghost"
           size="sm"
-          disabled={disabled || isUpdating}
-          className="h-7 px-2 text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+          disabled={isDisabled}
+          className={`h-7 px-2 text-xs ${
+            !isAuthenticated
+              ? "text-gray-400 hover:text-gray-400 cursor-not-allowed"
+              : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+          }`}
+          title={!isAuthenticated ? "Sign in to change chart types" : undefined}
         >
           <CurrentIcon className="h-3.5 w-3.5 mr-1" />
           {currentChart.label}
           <ChevronDown className="h-3 w-3 ml-1" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-28">
-        {chartTypes.map((type) => {
-          const Icon = type.icon
-          return (
-            <DropdownMenuItem key={type.value} onClick={() => handleTypeChange(type.value)} className="cursor-pointer">
-              <Icon className="h-4 w-4 mr-2" />
-              {type.label}
-            </DropdownMenuItem>
-          )
-        })}
-      </DropdownMenuContent>
+      {isAuthenticated && (
+        <DropdownMenuContent align="end" className="w-28">
+          {chartTypes.map((type) => {
+            const Icon = type.icon
+            return (
+              <DropdownMenuItem
+                key={type.value}
+                onClick={() => handleTypeChange(type.value)}
+                className="cursor-pointer"
+              >
+                <Icon className="h-4 w-4 mr-2" />
+                {type.label}
+              </DropdownMenuItem>
+            )
+          })}
+        </DropdownMenuContent>
+      )}
     </DropdownMenu>
   )
 }

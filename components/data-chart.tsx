@@ -28,10 +28,19 @@ interface DataChartProps {
   chartType?: string
   fileId?: string
   onChartTypeChange?: (fileId: string, newType: string) => Promise<void>
-  fieldOrder?: string[] // Added fieldOrder prop
+  fieldOrder?: string[]
+  isAuthenticated?: boolean
 }
 
-export function DataChart({ data, title, chartType = "line", fileId, onChartTypeChange, fieldOrder }: DataChartProps) {
+export function DataChart({
+  data,
+  title,
+  chartType = "line",
+  fileId,
+  onChartTypeChange,
+  fieldOrder,
+  isAuthenticated = true,
+}: DataChartProps) {
   if (!data || !Array.isArray(data) || data.length === 0) {
     return (
       <div className="h-80 w-full flex items-center justify-center border border-dashed border-gray-300 rounded-lg bg-gradient-to-br from-gray-50 to-gray-100">
@@ -344,8 +353,12 @@ export function DataChart({ data, title, chartType = "line", fileId, onChartType
           <div className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded-full font-medium">
             {chartData.length} points
           </div>
-          {fileId && onChartTypeChange && (
-            <ChartTypeSelector currentType={chartType} onTypeChange={handleChartTypeChange} />
+          {fileId && onChartTypeChange && isAuthenticated && (
+            <ChartTypeSelector
+              currentType={chartType}
+              onTypeChange={handleChartTypeChange}
+              isAuthenticated={isAuthenticated}
+            />
           )}
         </div>
       </div>

@@ -2,6 +2,7 @@
 
 import type React from "react"
 import { formatRelativeTime } from "@/lib/time-utils"
+import { useAuth } from "@/components/auth-provider"
 
 import { useState, useCallback, useRef, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -72,6 +73,8 @@ export function DashboardClient({ tenantId }: DashboardClientProps) {
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
   const { toast } = useToast()
+  const { user } = useAuth()
+  const isAuthenticated = !!user
 
   const handleDashboardChange = useCallback((dashboard: Dashboard) => {
     if (abortControllerRef.current) {
@@ -542,6 +545,7 @@ export function DashboardClient({ tenantId }: DashboardClientProps) {
                               currentType={file.chart_type || "line"}
                               onTypeChange={(newType) => updateChartType(file.id, newType)}
                               disabled={isRefreshing || isReordering}
+                              isAuthenticated={isAuthenticated}
                             />
                             <div className="flex items-center text-sm text-muted-foreground">
                               <TrendingUp className="h-4 w-4 mr-1" />
@@ -566,6 +570,7 @@ export function DashboardClient({ tenantId }: DashboardClientProps) {
                                 title={file.type}
                                 chartType={file.chart_type || "line"}
                                 fieldOrder={file.field_order}
+                                isAuthenticated={isAuthenticated}
                               />
                             </div>
                           )
