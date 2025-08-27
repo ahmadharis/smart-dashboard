@@ -3,7 +3,6 @@ import type { Metadata } from "next"
 import { Inter, JetBrains_Mono } from "next/font/google"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/toaster"
-import { AuthProvider } from "@/components/auth-context"
 import "./globals.css"
 
 const inter = Inter({
@@ -42,10 +41,8 @@ html {
       </head>
       <body className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-blue-900">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
-          <AuthProvider>
-            <Toaster />
-            {children}
-          </AuthProvider>
+          <Toaster />
+          {children}
         </ThemeProvider>
       </body>
     </html>
