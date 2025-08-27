@@ -52,7 +52,7 @@ export function AuthGuard({ children, tenantId, requireAuth = false }: AuthGuard
     if (!isLoading) {
       verifyAccess()
     }
-  }, [user, tenantId, requireAuth, checkTenantAccess, isLoading])
+  }, [user, tenantId, requireAuth, isLoading]) // Updated dependency array
 
   const handleLoginSuccess = () => {
     setError("")

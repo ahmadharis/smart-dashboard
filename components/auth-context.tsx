@@ -73,9 +73,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [],
   )
 
+  const pendingRequests = useMemo(() => new Map<string, Promise<boolean>>(), [])
+
   const checkTenantAccess = useCallback(
     async (tenantId: string): Promise<boolean> => {
       if (!authState.user) return false
+
+      const requestKey = `${authState.user.id}_${tenantId}`
 
       // Check memory cache first
       if (authState.tenantAccess[tenantId] !== undefined) {
@@ -93,26 +97,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return cachedResult
       }
 
+      if (pendingRequests.has(requestKey)) {
+        return pendingRequests.get(requestKey)!
+      }
+
       // Query database if not cached
-      const { data: tenantAccess, error: accessError } = await supabase
-        .from("user_tenants")
-        .select("id")
-        .eq("user_id", authState.user.id)
-        .eq("tenant_id", tenantId)
-        .single()
+      const requestPromise = (async () => {
+        try {
+          const { data: tenantAccess, error: accessError } = await supabase
+            .from("user_tenants")
+            .select("id")
+            .eq("user_id", authState.user!.id)
+            .eq("tenant_id", tenantId)
+            .single()
 
-      const hasAccess = !accessError && !!tenantAccess
+          const hasAccess = !accessError && !!tenantAccess
 
-      // Cache the result in both memory and localStorage
-      setCachedAccess(authState.user.id, tenantId, hasAccess)
-      setAuthState((prev) => ({
-        ...prev,
-        tenantAccess: { ...prev.tenantAccess, [tenantId]: hasAccess },
-      }))
+          // Cache the result in both memory and localStorage
+          setCachedAccess(authState.user!.id, tenantId, hasAccess)
+          setAuthState((prev) => ({
+            ...prev,
+            tenantAccess: { ...prev.tenantAccess, [tenantId]: hasAccess },
+          }))
 
-      return hasAccess
+          return hasAccess
+        } catch (error) {
+          console.error("Tenant access check error:", error)
+          return false
+        } finally {
+          pendingRequests.delete(requestKey)
+        }
+      })()
+
+      pendingRequests.set(requestKey, requestPromise)
+      return requestPromise
     },
-    [supabase, authState.user],
+    [supabase, authState.user, pendingRequests],
   )
 
   const clearCache = useCallback(() => {
