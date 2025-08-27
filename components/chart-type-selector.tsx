@@ -46,6 +46,15 @@ export function ChartTypeSelector({
 
   const isDisabled = disabled || isUpdating || !isAuthenticated
 
+  if (!isAuthenticated) {
+    return (
+      <div className="h-7 px-2 text-xs text-gray-500 flex items-center">
+        <CurrentIcon className="h-3.5 w-3.5 mr-1" />
+        {currentChart.label}
+      </div>
+    )
+  }
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -53,35 +62,24 @@ export function ChartTypeSelector({
           variant="ghost"
           size="sm"
           disabled={isDisabled}
-          className={`h-7 px-2 text-xs ${
-            !isAuthenticated
-              ? "text-gray-400 hover:text-gray-400 cursor-not-allowed"
-              : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
-          }`}
-          title={!isAuthenticated ? "Sign in to change chart types" : undefined}
+          className="h-7 px-2 text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-100"
         >
           <CurrentIcon className="h-3.5 w-3.5 mr-1" />
           {currentChart.label}
           <ChevronDown className="h-3 w-3 ml-1" />
         </Button>
       </DropdownMenuTrigger>
-      {isAuthenticated && (
-        <DropdownMenuContent align="end" className="w-28">
-          {chartTypes.map((type) => {
-            const Icon = type.icon
-            return (
-              <DropdownMenuItem
-                key={type.value}
-                onClick={() => handleTypeChange(type.value)}
-                className="cursor-pointer"
-              >
-                <Icon className="h-4 w-4 mr-2" />
-                {type.label}
-              </DropdownMenuItem>
-            )
-          })}
-        </DropdownMenuContent>
-      )}
+      <DropdownMenuContent align="end" className="w-28">
+        {chartTypes.map((type) => {
+          const Icon = type.icon
+          return (
+            <DropdownMenuItem key={type.value} onClick={() => handleTypeChange(type.value)} className="cursor-pointer">
+              <Icon className="h-4 w-4 mr-2" />
+              {type.label}
+            </DropdownMenuItem>
+          )
+        })}
+      </DropdownMenuContent>
     </DropdownMenu>
   )
 }
