@@ -1,14 +1,13 @@
 "use client"
 
 import type React from "react"
-import { useEffect, useState, useMemo, useCallback } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { createBrowserClient } from "@supabase/ssr"
-import type { User } from "@supabase/supabase-js"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { AlertCircle } from "lucide-react"
 import { LoginForm } from "./login-form"
+import { useAuth } from "./auth-context"
 
 interface AuthGuardProps {
   children: React.ReactNode
@@ -16,171 +15,67 @@ interface AuthGuardProps {
   requireAuth?: boolean
 }
 
-const CACHE_KEY_PREFIX = "tenant_access_"
-const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
-
-interface CachedAccess {
-  hasAccess: boolean
-  timestamp: number
-  userId: string
-  tenantId: string
-}
-
-const getCachedAccess = (userId: string, tenantId: string): boolean | null => {
-  try {
-    const cached = localStorage.getItem(`${CACHE_KEY_PREFIX}${userId}_${tenantId}`)
-    if (!cached) return null
-
-    const data: CachedAccess = JSON.parse(cached)
-    const isExpired = Date.now() - data.timestamp > CACHE_DURATION
-
-    if (isExpired || data.userId !== userId || data.tenantId !== tenantId) {
-      localStorage.removeItem(`${CACHE_KEY_PREFIX}${userId}_${tenantId}`)
-      return null
-    }
-
-    return data.hasAccess
-  } catch {
-    return null
-  }
-}
-
-const setCachedAccess = (userId: string, tenantId: string, hasAccess: boolean) => {
-  try {
-    const data: CachedAccess = {
-      hasAccess,
-      timestamp: Date.now(),
-      userId,
-      tenantId,
-    }
-    localStorage.setItem(`${CACHE_KEY_PREFIX}${userId}_${tenantId}`, JSON.stringify(data))
-  } catch {
-    // Ignore localStorage errors
-  }
-}
-
-const clearUserCache = (userId: string) => {
-  try {
-    const keys = Object.keys(localStorage).filter((key) => key.startsWith(CACHE_KEY_PREFIX) && key.includes(userId))
-    keys.forEach((key) => localStorage.removeItem(key))
-  } catch {
-    // Ignore localStorage errors
-  }
-}
-
 export function AuthGuard({ children, tenantId, requireAuth = false }: AuthGuardProps) {
-  const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [hasAccess, setHasAccess] = useState(false)
+  const { user, isLoading, checkTenantAccess } = useAuth()
+  const [hasAccess, setHasAccess] = useState<boolean | null>(null)
   const [error, setError] = useState<string>("")
   const router = useRouter()
 
-  const supabase = useMemo(
-    () => createBrowserClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!),
-    [],
-  )
-
-  const checkTenantAccess = useCallback(
-    async (userId: string): Promise<boolean> => {
-      // Check cache first
-      const cachedResult = getCachedAccess(userId, tenantId)
-      if (cachedResult !== null) {
-        return cachedResult
-      }
-
-      // Query database if not cached
-      const { data: tenantAccess, error: accessError } = await supabase
-        .from("user_tenants")
-        .select("id")
-        .eq("user_id", userId)
-        .eq("tenant_id", tenantId)
-        .single()
-
-      const hasAccess = !accessError && !!tenantAccess
-
-      // Cache the result
-      setCachedAccess(userId, tenantId, hasAccess)
-
-      return hasAccess
-    },
-    [supabase, tenantId],
-  )
-
-  const checkAuth = useCallback(async () => {
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      setUser(user)
+  useEffect(() => {
+    const verifyAccess = async () => {
+      setError("")
+      setHasAccess(null)
 
       if (!requireAuth) {
         setHasAccess(true)
-        setLoading(false)
         return
       }
 
       if (!user) {
         setError("authentication_required")
-        setLoading(false)
         return
       }
 
-      const userHasAccess = await checkTenantAccess(user.id)
-
-      if (!userHasAccess) {
-        setError("access_denied")
-        setLoading(false)
-        return
+      try {
+        const userHasAccess = await checkTenantAccess(tenantId)
+        if (!userHasAccess) {
+          setError("access_denied")
+          return
+        }
+        setHasAccess(true)
+      } catch (error) {
+        console.error("Tenant access check error:", error)
+        setError("auth_error")
       }
-
-      setHasAccess(true)
-      setError("") // Clear any previous errors on successful auth
-    } catch (error) {
-      console.error("Auth check error:", error)
-      setError("auth_error")
-    } finally {
-      setLoading(false)
     }
-  }, [supabase, requireAuth, checkTenantAccess])
 
-  useEffect(() => {
-    checkAuth()
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "SIGNED_IN" && session?.user) {
-        clearUserCache(session.user.id)
-        checkAuth()
-      } else if (event === "SIGNED_OUT") {
-        setUser(null)
-        setHasAccess(false)
-        try {
-          const keys = Object.keys(localStorage).filter((key) => key.startsWith(CACHE_KEY_PREFIX))
-          keys.forEach((key) => localStorage.removeItem(key))
-        } catch {
-          // Ignore localStorage errors
-        }
-        if (requireAuth) {
-          setError("authentication_required")
-        }
-      }
-    })
-
-    return () => subscription.unsubscribe()
-  }, [checkAuth, supabase, requireAuth])
+    if (!isLoading) {
+      verifyAccess()
+    }
+  }, [user, tenantId, requireAuth, checkTenantAccess, isLoading])
 
   const handleLoginSuccess = () => {
     setError("")
-    checkAuth()
+    // Auth context will handle the state update
   }
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Verifying access...</p>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (requireAuth && hasAccess === null && !error) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Checking access...</p>
         </div>
       </div>
     )
@@ -245,7 +140,7 @@ export function AuthGuard({ children, tenantId, requireAuth = false }: AuthGuard
                 An error occurred while verifying your access. Please try again.
               </AlertDescription>
             </Alert>
-            <Button onClick={() => router.refresh()} className="w-full mt-4">
+            <Button onClick={() => window.location.reload()} className="w-full mt-4">
               Try Again
             </Button>
           </div>
