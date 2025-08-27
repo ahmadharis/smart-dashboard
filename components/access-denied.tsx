@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ArrowRight, AlertCircle, LogOut } from "lucide-react"
+import { ArrowRight, AlertCircle, LogOut, Home } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
@@ -66,6 +66,10 @@ export function AccessDenied({ deniedTenantId }: AccessDeniedProps) {
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
+    router.push("/")
+  }
+
+  const handleGoHome = () => {
     router.push("/")
   }
 
@@ -138,6 +142,12 @@ export function AccessDenied({ deniedTenantId }: AccessDeniedProps) {
                   </p>
                 </div>
               )}
+
+              {/* Added Go Home button before Sign Out button */}
+              <Button onClick={handleGoHome} variant="secondary" className="w-full">
+                <Home className="h-4 w-4 mr-2" />
+                Go Home
+              </Button>
 
               <Button onClick={handleLogout} variant="outline" className="w-full bg-transparent">
                 <LogOut className="h-4 w-4 mr-2" />
