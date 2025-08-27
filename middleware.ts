@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
+import { updateSession } from "@/lib/supabase/middleware"
 
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>()
 
@@ -32,18 +33,25 @@ function checkRateLimit(ip: string, limit = 100, windowMs = 60000): boolean {
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
-  const response = NextResponse.next()
 
-  response.headers.set("X-Frame-Options", "DENY")
-  response.headers.set("X-Content-Type-Options", "nosniff")
-  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin")
-  response.headers.set("X-XSS-Protection", "1; mode=block")
-  response.headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
-  response.headers.set(
+  const supabaseResponse = await updateSession(request)
+
+  // If Supabase middleware returned a redirect, use it
+  if (supabaseResponse.status === 307 || supabaseResponse.status === 302) {
+    return supabaseResponse
+  }
+
+  // Apply security headers to the Supabase response
+  supabaseResponse.headers.set("X-Frame-Options", "DENY")
+  supabaseResponse.headers.set("X-Content-Type-Options", "nosniff")
+  supabaseResponse.headers.set("Referrer-Policy", "strict-origin-when-cross-origin")
+  supabaseResponse.headers.set("X-XSS-Protection", "1; mode=block")
+  supabaseResponse.headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+  supabaseResponse.headers.set(
     "Content-Security-Policy",
     "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'",
   )
-  response.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()")
+  supabaseResponse.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()")
 
   if (pathname.startsWith("/api/internal/")) {
     const clientIP = request.ip || request.headers.get("x-forwarded-for") || "unknown"
@@ -89,16 +97,17 @@ export async function middleware(request: NextRequest) {
       return NextResponse.json({ error: "Method not allowed" }, { status: 405 })
     }
 
-    return response
+    return supabaseResponse
   }
 
   if (
     pathname.startsWith("/api/") ||
     pathname.startsWith("/_next/") ||
     pathname.startsWith("/favicon.ico") ||
-    pathname === "/"
+    pathname === "/" ||
+    pathname.startsWith("/auth/")
   ) {
-    return response
+    return supabaseResponse
   }
 
   const tenantIdMatch = pathname.match(/^\/([^/]+)/)
@@ -114,9 +123,18 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/", request.url))
   }
 
-  return response
+  return supabaseResponse
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  matcher: [
+    /*
+     * Match all request paths except:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - images - .svg, .png, .jpg, .jpeg, .gif, .webp
+     */
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+  ],
 }

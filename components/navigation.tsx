@@ -4,6 +4,7 @@ import Link from "next/link"
 import { usePathname, useParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { BarChart3, Upload, Home, FileText } from "lucide-react"
+import { UserNav } from "@/components/user-nav"
 
 export function Navigation() {
   const pathname = usePathname()
@@ -53,6 +54,7 @@ export function Navigation() {
                 </Button>
               </>
             )}
+            <UserNav />
           </div>
         </div>
       </div>

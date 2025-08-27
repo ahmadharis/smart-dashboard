@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -18,6 +18,7 @@ export function TenantSelector() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string>("")
   const router = useRouter()
+  const searchParams = useSearchParams()
 
   useEffect(() => {
     fetchTenants()
