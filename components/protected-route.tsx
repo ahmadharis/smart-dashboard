@@ -4,7 +4,7 @@ import type React from "react"
 
 import { useAuth } from "./auth-provider"
 import { useRouter } from "next/navigation"
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { Loader2 } from "lucide-react"
 
 interface ProtectedRouteProps {
@@ -15,12 +15,14 @@ interface ProtectedRouteProps {
 export function ProtectedRoute({ children, tenantId }: ProtectedRouteProps) {
   const { user, isLoading, checkTenantAccess } = useAuth()
   const router = useRouter()
+  const [hasRedirected, setHasRedirected] = useState(false)
 
   useEffect(() => {
-    if (isLoading) return
+    if (isLoading || hasRedirected) return
 
     if (!user) {
       console.log("[v0] No user found, redirecting to login")
+      setHasRedirected(true)
       router.push("/auth/login")
       return
     }
@@ -28,12 +30,17 @@ export function ProtectedRoute({ children, tenantId }: ProtectedRouteProps) {
     const hasAccess = checkTenantAccess(tenantId)
     if (!hasAccess) {
       console.log("[v0] No tenant access, redirecting to home with error")
+      setHasRedirected(true)
       router.push(`/?error=access_denied&tenant=${tenantId}`)
       return
     }
 
     console.log("[v0] Access granted for tenant:", tenantId)
-  }, [user, isLoading, tenantId, checkTenantAccess, router])
+  }, [user, isLoading, tenantId, router, hasRedirected])
+
+  useEffect(() => {
+    setHasRedirected(false)
+  }, [user?.id, tenantId])
 
   if (isLoading) {
     return (
