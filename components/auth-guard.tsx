@@ -72,19 +72,29 @@ export function AuthGuard({ children, tenantId, requireAuth = false }: AuthGuard
 
   const checkTenantAccess = useCallback(
     async (currentUser: any, currentTenantId: string) => {
+      console.log("[v0] checkTenantAccess called with:", {
+        userId: currentUser?.id,
+        tenantId: currentTenantId,
+        requireAuth,
+      })
+
       if (!requireAuth) {
+        console.log("[v0] Auth not required, granting access")
         setHasAccess(true)
         return
       }
 
       if (!currentUser) {
+        console.log("[v0] No user found, authentication required")
         setError("authentication_required")
         return
       }
 
       // Check cache first
       const cachedResult = getCachedAccess(currentUser.id, currentTenantId)
+      console.log("[v0] Cache check result:", cachedResult)
       if (cachedResult !== null) {
+        console.log("[v0] Using cached result:", cachedResult)
         setHasAccess(cachedResult)
         if (!cachedResult) {
           setError("access_denied")
@@ -94,6 +104,8 @@ export function AuthGuard({ children, tenantId, requireAuth = false }: AuthGuard
 
       // Only query database if not cached
       try {
+        console.log("[v0] Querying user_tenants table for:", { user_id: currentUser.id, tenant_id: currentTenantId })
+
         const { data: tenantAccess, error: accessError } = await supabase
           .from("user_tenants")
           .select("id")
@@ -101,17 +113,21 @@ export function AuthGuard({ children, tenantId, requireAuth = false }: AuthGuard
           .eq("tenant_id", currentTenantId)
           .single()
 
+        console.log("[v0] Database query result:", { data: tenantAccess, error: accessError })
+
         const userHasAccess = !accessError && !!tenantAccess
+        console.log("[v0] Final access decision:", userHasAccess)
 
         // Cache the result
         setCachedAccess(currentUser.id, currentTenantId, userHasAccess)
         setHasAccess(userHasAccess)
 
         if (!userHasAccess) {
+          console.log("[v0] Access denied, setting error")
           setError("access_denied")
         }
       } catch (error) {
-        console.error("Tenant access check error:", error)
+        console.error("[v0] Tenant access check error:", error)
         setError("auth_error")
       }
     },
