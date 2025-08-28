@@ -1,8 +1,8 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Settings, X } from "lucide-react"
+import { Settings, X, Check, RotateCcw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
@@ -70,10 +70,31 @@ interface TVModeSettingsProps {
 
 export function TVModeSettingsPanel({ isOpen, onClose, settings, onSettingsChange }: TVModeSettingsProps) {
   const [localSettings, setLocalSettings] = useState<TVModeSettings>(settings)
+  const panelRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     setLocalSettings(settings)
   }, [settings])
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!isOpen) return
+
+      if (e.key === "Escape" || e.key === "ArrowLeft") {
+        onClose()
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown)
+    return () => document.removeEventListener("keydown", handleKeyDown)
+  }, [isOpen, onClose])
+
+  useEffect(() => {
+    if (isOpen && panelRef.current) {
+      const firstFocusable = panelRef.current.querySelector('button, [tabindex="0"]') as HTMLElement
+      firstFocusable?.focus()
+    }
+  }, [isOpen])
 
   const handleSave = () => {
     onSettingsChange(localSettings)
@@ -92,146 +113,198 @@ export function TVModeSettingsPanel({ isOpen, onClose, settings, onSettingsChang
   return (
     <AnimatePresence>
       {isOpen && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4"
-          onClick={onClose}
-        >
+        <>
           <motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.9, opacity: 0 }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/30 backdrop-blur-sm z-[100]"
+            onClick={onClose}
+          />
+
+          <motion.div
+            ref={panelRef}
+            initial={{ x: "100%" }}
+            animate={{ x: 0 }}
+            exit={{ x: "100%" }}
+            transition={{ type: "spring", damping: 25, stiffness: 200 }}
+            className="fixed right-0 top-0 h-full max-h-screen w-72 sm:w-80 lg:w-96 z-[101] flex flex-col"
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-2xl max-h-[90vh] overflow-y-auto"
           >
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+            <Card className="flex-1 flex flex-col rounded-none border-l border-t-0 border-r-0 border-b-0 shadow-2xl max-h-full">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 border-b flex-shrink-0">
                 <div>
-                  <CardTitle className="flex items-center gap-2">
-                    <Settings className="h-5 w-5" />
+                  <CardTitle className="flex items-center gap-2 text-sm sm:text-base">
+                    <Settings className="h-4 w-4" />
                     TV Mode Settings
                   </CardTitle>
-                  <CardDescription>Customize the TV mode experience with timing and animation options.</CardDescription>
+                  <CardDescription className="text-xs">
+                    Customize the TV mode experience with timing and animation options.
+                  </CardDescription>
                 </div>
-                <Button variant="ghost" size="sm" onClick={onClose}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onClose}
+                  className="ring-offset-background focus:ring-ring rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden h-8 w-8"
+                  tabIndex={0}
+                >
                   <X className="h-4 w-4" />
+                  <span className="sr-only">Close</span>
                 </Button>
               </CardHeader>
-              <CardContent className="space-y-6">
-                {/* Timing Settings */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Timing Settings</h3>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="slideDuration">Slide Duration (seconds)</Label>
-                    <div className="flex items-center space-x-4">
-                      <Slider
-                        id="slideDuration"
-                        min={3}
-                        max={60}
-                        step={1}
-                        value={[localSettings.slideDuration / 1000]}
-                        onValueChange={([value]) => updateSetting("slideDuration", value * 1000)}
-                        className="flex-1"
-                      />
-                      <span className="w-12 text-sm text-muted-foreground">{localSettings.slideDuration / 1000}s</span>
+              <div className="flex-1 overflow-hidden min-h-0">
+                <CardContent className="h-full overflow-y-auto scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent space-y-5 p-4">
+                  <div className="space-y-3">
+                    <h3 className="text-sm sm:text-base font-semibold">Timing Settings</h3>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="slideDuration" className="text-xs sm:text-sm font-medium">
+                        Slide Duration (seconds)
+                      </Label>
+                      <div className="flex items-center space-x-3">
+                        <Slider
+                          id="slideDuration"
+                          min={3}
+                          max={60}
+                          step={1}
+                          value={[localSettings.slideDuration / 1000]}
+                          onValueChange={([value]) => updateSetting("slideDuration", value * 1000)}
+                          className="flex-1"
+                        />
+                        <span className="w-10 text-xs sm:text-sm font-medium text-muted-foreground">
+                          {localSettings.slideDuration / 1000}s
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="dataRefresh" className="text-xs sm:text-sm font-medium">
+                        Data Refresh Interval (seconds)
+                      </Label>
+                      <div className="flex items-center space-x-3">
+                        <Slider
+                          id="dataRefresh"
+                          min={10}
+                          max={300}
+                          step={5}
+                          value={[localSettings.dataRefreshInterval / 1000]}
+                          onValueChange={([value]) => updateSetting("dataRefreshInterval", value * 1000)}
+                          className="flex-1"
+                        />
+                        <span className="w-10 text-xs sm:text-sm font-medium text-muted-foreground">
+                          {localSettings.dataRefreshInterval / 1000}s
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="controlsHide" className="text-xs sm:text-sm font-medium">
+                        Controls Hide Timeout (seconds)
+                      </Label>
+                      <div className="flex items-center space-x-3">
+                        <Slider
+                          id="controlsHide"
+                          min={1}
+                          max={10}
+                          step={0.5}
+                          value={[localSettings.controlsHideTimeout / 1000]}
+                          onValueChange={([value]) => updateSetting("controlsHideTimeout", value * 1000)}
+                          className="flex-1"
+                        />
+                        <span className="w-10 text-xs sm:text-sm font-medium text-muted-foreground">
+                          {localSettings.controlsHideTimeout / 1000}s
+                        </span>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="dataRefresh">Data Refresh Interval (seconds)</Label>
-                    <div className="flex items-center space-x-4">
-                      <Slider
-                        id="dataRefresh"
-                        min={10}
-                        max={300}
-                        step={5}
-                        value={[localSettings.dataRefreshInterval / 1000]}
-                        onValueChange={([value]) => updateSetting("dataRefreshInterval", value * 1000)}
-                        className="flex-1"
-                      />
-                      <span className="w-12 text-sm text-muted-foreground">
-                        {localSettings.dataRefreshInterval / 1000}s
-                      </span>
+                  <div className="space-y-3">
+                    <h3 className="text-sm sm:text-base font-semibold">Animation Settings</h3>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="animationDuration" className="text-xs sm:text-sm font-medium">
+                        Animation Duration (seconds)
+                      </Label>
+                      <div className="flex items-center space-x-3">
+                        <Slider
+                          id="animationDuration"
+                          min={0.1}
+                          max={2}
+                          step={0.1}
+                          value={[localSettings.animationDuration]}
+                          onValueChange={([value]) => updateSetting("animationDuration", value)}
+                          className="flex-1"
+                        />
+                        <span className="w-10 text-xs sm:text-sm font-medium text-muted-foreground">
+                          {localSettings.animationDuration}s
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="animationType" className="text-xs sm:text-sm font-medium">
+                        Animation Type
+                      </Label>
+                      <Select
+                        value={localSettings.animationType}
+                        onValueChange={(value: TVModeSettings["animationType"]) =>
+                          updateSetting("animationType", value)
+                        }
+                      >
+                        <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="easeInOut" className="text-xs sm:text-sm py-1.5">
+                            Ease In Out (Smooth)
+                          </SelectItem>
+                          <SelectItem value="easeIn" className="text-xs sm:text-sm py-1.5">
+                            Ease In (Slow Start)
+                          </SelectItem>
+                          <SelectItem value="easeOut" className="text-xs sm:text-sm py-1.5">
+                            Ease Out (Slow End)
+                          </SelectItem>
+                          <SelectItem value="linear" className="text-xs sm:text-sm py-1.5">
+                            Linear (Constant Speed)
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
+                </CardContent>
+              </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="controlsHide">Controls Hide Timeout (seconds)</Label>
-                    <div className="flex items-center space-x-4">
-                      <Slider
-                        id="controlsHide"
-                        min={1}
-                        max={10}
-                        step={0.5}
-                        value={[localSettings.controlsHideTimeout / 1000]}
-                        onValueChange={([value]) => updateSetting("controlsHideTimeout", value * 1000)}
-                        className="flex-1"
-                      />
-                      <span className="w-12 text-sm text-muted-foreground">
-                        {localSettings.controlsHideTimeout / 1000}s
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Animation Settings */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Animation Settings</h3>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="animationDuration">Animation Duration (seconds)</Label>
-                    <div className="flex items-center space-x-4">
-                      <Slider
-                        id="animationDuration"
-                        min={0.1}
-                        max={2}
-                        step={0.1}
-                        value={[localSettings.animationDuration]}
-                        onValueChange={([value]) => updateSetting("animationDuration", value)}
-                        className="flex-1"
-                      />
-                      <span className="w-12 text-sm text-muted-foreground">{localSettings.animationDuration}s</span>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="animationType">Animation Type</Label>
-                    <Select
-                      value={localSettings.animationType}
-                      onValueChange={(value: TVModeSettings["animationType"]) => updateSetting("animationType", value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="easeInOut">Ease In Out (Smooth)</SelectItem>
-                        <SelectItem value="easeIn">Ease In (Slow Start)</SelectItem>
-                        <SelectItem value="easeOut">Ease Out (Slow End)</SelectItem>
-                        <SelectItem value="linear">Linear (Constant Speed)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                {/* Action Buttons */}
-                <div className="flex justify-between pt-4 border-t">
-                  <Button variant="outline" onClick={handleReset}>
+              <div className="flex-shrink-0 p-4 border-t bg-background max-h-32">
+                <div className="flex flex-col gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={handleReset}
+                    className="h-9 text-sm px-3 focus:ring-2 focus:ring-primary bg-transparent"
+                  >
+                    <RotateCcw className="h-4 w-4 mr-2" />
                     Reset to Defaults
                   </Button>
                   <div className="flex gap-2">
-                    <Button variant="outline" onClick={onClose}>
+                    <Button
+                      variant="outline"
+                      onClick={onClose}
+                      className="flex-1 h-9 text-sm px-3 focus:ring-2 focus:ring-primary bg-transparent"
+                    >
+                      <X className="h-4 w-4 mr-2" />
                       Cancel
                     </Button>
-                    <Button onClick={handleSave}>Save Settings</Button>
+                    <Button onClick={handleSave} className="flex-1 h-9 text-sm px-3 focus:ring-2 focus:ring-primary">
+                      <Check className="h-4 w-4 mr-2" />
+                      Save Settings
+                    </Button>
                   </div>
                 </div>
-              </CardContent>
+              </div>
             </Card>
           </motion.div>
-        </motion.div>
+        </>
       )}
     </AnimatePresence>
   )
