@@ -8,13 +8,12 @@ import { useState, useCallback, useRef, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { RefreshCw, TrendingUp, Calendar, BarChart3, AlertCircle, Edit2, Tv } from "lucide-react"
+import { RefreshCw, TrendingUp, Calendar, BarChart3, AlertCircle, Edit2 } from "lucide-react"
 import { DataChart } from "@/components/data-chart"
 import { ChartTypeSelector } from "@/components/chart-type-selector"
 import { DashboardSwitcher } from "@/components/dashboard-switcher"
 import { useToast } from "@/hooks/use-toast"
 import { ApiClient } from "@/lib/api-client"
-import Link from "next/link"
 
 interface DataFile {
   id: string
@@ -399,17 +398,6 @@ export function DashboardClient({ tenantId }: DashboardClientProps) {
         currentDashboard={currentDashboard}
       />
 
-      {currentDashboard && (
-        <div className="flex justify-end">
-          <Link href={`/${tenantId}/tv-mode?dashboardId=${currentDashboard.id}`}>
-            <Button variant="outline" size="sm" className="flex items-center gap-2 bg-transparent">
-              <Tv className="h-4 w-4" />
-              TV Mode
-            </Button>
-          </Link>
-        </div>
-      )}
-
       {isLoading && currentDashboard && (
         <div className="space-y-6 animate-in fade-in duration-300">
           <div className="flex items-center justify-center py-4">
@@ -491,27 +479,28 @@ export function DashboardClient({ tenantId }: DashboardClientProps) {
                     </span>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    onClick={() => setIsEditMode(!isEditMode)}
-                    variant={isEditMode ? "default" : "outline"}
-                    size="sm"
-                    className="transition-all duration-200"
-                  >
-                    <Edit2 className="h-4 w-4 sm:mr-2" />
-                    <span className="hidden sm:inline">{isEditMode ? "Done" : "Edit"}</span>
-                  </Button>
-                  <Button
-                    onClick={() => refreshData(false)}
-                    variant="outline"
-                    size="sm"
-                    disabled={isRefreshing}
-                    className="transition-all duration-200 hover:bg-muted"
-                  >
-                    <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""} sm:mr-2`} />
-                    <span className="hidden sm:inline">Refresh</span>
-                  </Button>
-                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 mb-6">
+                <Button
+                  onClick={() => setIsEditMode(!isEditMode)}
+                  variant={isEditMode ? "default" : "outline"}
+                  size="sm"
+                  className="transition-all duration-200"
+                >
+                  <Edit2 className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">{isEditMode ? "Done" : "Edit"}</span>
+                </Button>
+                <Button
+                  onClick={() => refreshData(false)}
+                  variant="outline"
+                  size="sm"
+                  disabled={isRefreshing}
+                  className="transition-all duration-200 hover:bg-muted"
+                >
+                  <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""} sm:mr-2`} />
+                  <span className="hidden sm:inline">Refresh</span>
+                </Button>
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

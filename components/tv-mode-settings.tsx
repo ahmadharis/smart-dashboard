@@ -132,26 +132,40 @@ export function TVModeSettingsPanel({ isOpen, onClose, settings, onSettingsChang
             onClick={(e) => e.stopPropagation()}
           >
             <Card className="flex-1 flex flex-col rounded-none border-l border-t-0 border-r-0 border-b-0 shadow-2xl max-h-full">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 border-b flex-shrink-0">
-                <div>
-                  <CardTitle className="flex items-center gap-2 text-sm sm:text-base">
-                    <Settings className="h-4 w-4" />
-                    TV Mode Settings
-                  </CardTitle>
-                  <CardDescription className="text-xs">
-                    Customize the TV mode experience with timing and animation options.
-                  </CardDescription>
+              <CardHeader className="flex-shrink-0 pb-4 border-b">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1 min-w-0">
+                    <CardTitle className="flex items-center gap-2 text-base sm:text-lg mb-2">
+                      <Settings className="h-4 w-4" />
+                      TV Mode Settings
+                    </CardTitle>
+                    <CardDescription className="text-xs sm:text-sm">
+                      Customize timing and animation options.
+                    </CardDescription>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={onClose}
+                    className="ring-offset-background focus:ring-ring rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden h-8 w-8 ml-2"
+                    tabIndex={0}
+                  >
+                    <X className="h-4 w-4" />
+                    <span className="sr-only">Close</span>
+                  </Button>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={onClose}
-                  className="ring-offset-background focus:ring-ring rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden h-8 w-8"
-                  tabIndex={0}
-                >
-                  <X className="h-4 w-4" />
-                  <span className="sr-only">Close</span>
-                </Button>
+                <div className="flex justify-start mt-3">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleReset}
+                    className="h-8 text-xs px-3 text-muted-foreground hover:text-foreground focus:ring-2 focus:ring-primary"
+                    title="Reset all settings to defaults"
+                  >
+                    <RotateCcw className="h-3 w-3 mr-1" />
+                    Reset to Defaults
+                  </Button>
+                </div>
               </CardHeader>
 
               <div className="flex-1 overflow-hidden min-h-0">
@@ -173,7 +187,7 @@ export function TVModeSettingsPanel({ isOpen, onClose, settings, onSettingsChang
                           onValueChange={([value]) => updateSetting("slideDuration", value * 1000)}
                           className="flex-1"
                         />
-                        <span className="w-10 text-xs sm:text-sm font-medium text-muted-foreground">
+                        <span className="w-12 text-xs sm:text-sm font-medium text-muted-foreground">
                           {localSettings.slideDuration / 1000}s
                         </span>
                       </div>
@@ -193,7 +207,7 @@ export function TVModeSettingsPanel({ isOpen, onClose, settings, onSettingsChang
                           onValueChange={([value]) => updateSetting("dataRefreshInterval", value * 1000)}
                           className="flex-1"
                         />
-                        <span className="w-10 text-xs sm:text-sm font-medium text-muted-foreground">
+                        <span className="w-12 text-xs sm:text-sm font-medium text-muted-foreground">
                           {localSettings.dataRefreshInterval / 1000}s
                         </span>
                       </div>
@@ -213,12 +227,14 @@ export function TVModeSettingsPanel({ isOpen, onClose, settings, onSettingsChang
                           onValueChange={([value]) => updateSetting("controlsHideTimeout", value * 1000)}
                           className="flex-1"
                         />
-                        <span className="w-10 text-xs sm:text-sm font-medium text-muted-foreground">
+                        <span className="w-12 text-xs sm:text-sm font-medium text-muted-foreground">
                           {localSettings.controlsHideTimeout / 1000}s
                         </span>
                       </div>
                     </div>
                   </div>
+
+                  <div className="border-t border-border/50"></div>
 
                   <div className="space-y-3">
                     <h3 className="text-sm sm:text-base font-semibold">Animation Settings</h3>
@@ -237,7 +253,7 @@ export function TVModeSettingsPanel({ isOpen, onClose, settings, onSettingsChang
                           onValueChange={([value]) => updateSetting("animationDuration", value)}
                           className="flex-1"
                         />
-                        <span className="w-10 text-xs sm:text-sm font-medium text-muted-foreground">
+                        <span className="w-12 text-xs sm:text-sm font-medium text-muted-foreground">
                           {localSettings.animationDuration}s
                         </span>
                       </div>
@@ -253,20 +269,20 @@ export function TVModeSettingsPanel({ isOpen, onClose, settings, onSettingsChang
                           updateSetting("animationType", value)
                         }
                       >
-                        <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
+                        <SelectTrigger className="h-9 sm:h-10 text-xs sm:text-sm">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="easeInOut" className="text-xs sm:text-sm py-1.5">
+                          <SelectItem value="easeInOut" className="text-xs sm:text-sm py-2">
                             Ease In Out (Smooth)
                           </SelectItem>
-                          <SelectItem value="easeIn" className="text-xs sm:text-sm py-1.5">
+                          <SelectItem value="easeIn" className="text-xs sm:text-sm py-2">
                             Ease In (Slow Start)
                           </SelectItem>
-                          <SelectItem value="easeOut" className="text-xs sm:text-sm py-1.5">
+                          <SelectItem value="easeOut" className="text-xs sm:text-sm py-2">
                             Ease Out (Slow End)
                           </SelectItem>
-                          <SelectItem value="linear" className="text-xs sm:text-sm py-1.5">
+                          <SelectItem value="linear" className="text-xs sm:text-sm py-2">
                             Linear (Constant Speed)
                           </SelectItem>
                         </SelectContent>
@@ -276,30 +292,20 @@ export function TVModeSettingsPanel({ isOpen, onClose, settings, onSettingsChang
                 </CardContent>
               </div>
 
-              <div className="flex-shrink-0 p-4 border-t bg-background max-h-32">
-                <div className="flex flex-col gap-2">
+              <div className="flex-shrink-0 p-4 border-t bg-background">
+                <div className="flex gap-3">
                   <Button
                     variant="outline"
-                    onClick={handleReset}
-                    className="h-9 text-sm px-3 focus:ring-2 focus:ring-primary bg-transparent"
+                    onClick={onClose}
+                    className="flex-1 h-9 text-sm px-3 focus:ring-2 focus:ring-primary bg-transparent"
                   >
-                    <RotateCcw className="h-4 w-4 mr-2" />
-                    Reset to Defaults
+                    <X className="h-4 w-4 mr-2" />
+                    Cancel
                   </Button>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      onClick={onClose}
-                      className="flex-1 h-9 text-sm px-3 focus:ring-2 focus:ring-primary bg-transparent"
-                    >
-                      <X className="h-4 w-4 mr-2" />
-                      Cancel
-                    </Button>
-                    <Button onClick={handleSave} className="flex-1 h-9 text-sm px-3 focus:ring-2 focus:ring-primary">
-                      <Check className="h-4 w-4 mr-2" />
-                      Save Settings
-                    </Button>
-                  </div>
+                  <Button onClick={handleSave} className="flex-1 h-9 text-sm px-3 focus:ring-2 focus:ring-primary">
+                    <Check className="h-4 w-4 mr-2" />
+                    Save Settings
+                  </Button>
                 </div>
               </div>
             </Card>

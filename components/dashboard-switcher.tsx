@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Share, Loader2, Home } from "lucide-react"
+import { Share, Loader2, Home, Tv } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { Badge } from "@/components/ui/badge"
 import Link from "next/link"
@@ -164,7 +164,7 @@ export function DashboardSwitcher({ tenantId, onDashboardChange, currentDashboar
               </div>
             </div>
 
-            {/* Bottom row: Dashboard selector and share button */}
+            {/* Bottom row: Dashboard selector and action buttons */}
             <div className="flex items-center gap-2 animate-in slide-in-from-right-2 duration-200">
               <Select value={currentDashboard?.id || ""} onValueChange={handleDashboardChange} disabled={isSwitching}>
                 <SelectTrigger className="flex-1 transition-all duration-200 hover:border-primary/40 bg-background">
@@ -181,15 +181,27 @@ export function DashboardSwitcher({ tenantId, onDashboardChange, currentDashboar
               </Select>
 
               {currentDashboard && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={shareDashboard}
-                  className="transition-all duration-200 hover:bg-muted/50 bg-transparent shrink-0"
-                >
-                  <Share className="h-4 w-4" />
-                  <span className="sr-only">Share</span>
-                </Button>
+                <>
+                  <Link href={`/${tenantId}/tv-mode?dashboardId=${currentDashboard.id}`}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="transition-all duration-200 hover:bg-muted/50 bg-transparent shrink-0"
+                    >
+                      <Tv className="h-4 w-4" />
+                      <span className="sr-only">TV Mode</span>
+                    </Button>
+                  </Link>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={shareDashboard}
+                    className="transition-all duration-200 hover:bg-muted/50 bg-transparent shrink-0"
+                  >
+                    <Share className="h-4 w-4" />
+                    <span className="sr-only">Share</span>
+                  </Button>
+                </>
               )}
             </div>
           </div>
@@ -227,15 +239,27 @@ export function DashboardSwitcher({ tenantId, onDashboardChange, currentDashboar
               </Select>
 
               {currentDashboard && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={shareDashboard}
-                  className="transition-all duration-200 hover:bg-muted/50 bg-transparent"
-                >
-                  <Share className="h-4 w-4 mr-1" />
-                  Share
-                </Button>
+                <>
+                  <Link href={`/${tenantId}/tv-mode?dashboardId=${currentDashboard.id}`}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="transition-all duration-200 hover:bg-muted/50 bg-transparent"
+                    >
+                      <Tv className="h-4 w-4 mr-1" />
+                      TV Mode
+                    </Button>
+                  </Link>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={shareDashboard}
+                    className="transition-all duration-200 hover:bg-muted/50 bg-transparent"
+                  >
+                    <Share className="h-4 w-4 mr-1" />
+                    Share
+                  </Button>
+                </>
               )}
             </div>
           </div>
