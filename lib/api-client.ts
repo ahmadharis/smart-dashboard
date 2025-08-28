@@ -5,6 +5,29 @@ interface ApiClientOptions {
   tenantId?: string
 }
 
+async function safeJsonParse(response: Response): Promise<any> {
+  try {
+    const text = await response.text()
+    if (!text) return {}
+
+    // Check if response looks like JSON
+    if (text.trim().startsWith("{") || text.trim().startsWith("[")) {
+      return JSON.parse(text)
+    } else {
+      // Return HTML/text content as error message
+      return {
+        error: text.includes("Too Many") ? "Rate limit exceeded. Please try again later." : "Server error occurred",
+        rawResponse: text.substring(0, 100), // First 100 chars for debugging
+      }
+    }
+  } catch (error) {
+    return {
+      error: "Invalid response format",
+      parseError: error instanceof Error ? error.message : "Unknown parsing error",
+    }
+  }
+}
+
 export class ApiClient {
   private static getHeaders(options: ApiClientOptions = {}): Record<string, string> {
     const headers: Record<string, string> = {
@@ -54,7 +77,33 @@ export class ApiClient {
       }
     }
 
-    return await fetch(finalUrl, fetchOptions)
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 second timeout
+
+    try {
+      const response = await fetch(finalUrl, {
+        ...fetchOptions,
+        signal: controller.signal,
+      })
+      clearTimeout(timeoutId)
+
+      const enhancedResponse = new Proxy(response, {
+        get(target, prop) {
+          if (prop === "json") {
+            return () => safeJsonParse(target.clone())
+          }
+          return target[prop as keyof Response]
+        },
+      })
+
+      return enhancedResponse
+    } catch (error) {
+      clearTimeout(timeoutId)
+      if (error instanceof Error && error.name === "AbortError") {
+        throw new Error("Request timeout - please try again")
+      }
+      throw error
+    }
   }
 
   static async get(url: string, options: Omit<ApiClientOptions, "method" | "body"> = {}): Promise<Response> {

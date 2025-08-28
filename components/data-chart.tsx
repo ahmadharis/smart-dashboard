@@ -28,10 +28,19 @@ interface DataChartProps {
   chartType?: string
   fileId?: string
   onChartTypeChange?: (fileId: string, newType: string) => Promise<void>
-  fieldOrder?: string[] // Added fieldOrder prop
+  fieldOrder?: string[]
+  isAuthenticated?: boolean
 }
 
-export function DataChart({ data, title, chartType = "line", fileId, onChartTypeChange, fieldOrder }: DataChartProps) {
+export function DataChart({
+  data,
+  title,
+  chartType = "line",
+  fileId,
+  onChartTypeChange,
+  fieldOrder,
+  isAuthenticated = true,
+}: DataChartProps) {
   if (!data || !Array.isArray(data) || data.length === 0) {
     return (
       <div className="h-80 w-full flex items-center justify-center border border-dashed border-gray-300 rounded-lg bg-gradient-to-br from-gray-50 to-gray-100">
@@ -236,8 +245,8 @@ export function DataChart({ data, title, chartType = "line", fileId, onChartType
               data={chartData}
               cx="50%"
               cy="50%"
-              outerRadius={110}
-              innerRadius={45}
+              outerRadius={hasMany ? 75 : 90}
+              innerRadius={hasMany ? 30 : 35}
               paddingAngle={2}
               dataKey={valueColumn}
               label={hasMany ? false : smartLabel}
@@ -336,7 +345,7 @@ export function DataChart({ data, title, chartType = "line", fileId, onChartType
 
   return (
     <div
-      className={`w-full p-4 bg-gradient-to-br from-white to-gray-50 rounded-lg border border-gray-200 shadow-sm relative`}
+      className={`w-full p-4 bg-gradient-to-br from-white to-gray-50 rounded-lg border border-gray-200 shadow-sm relative overflow-hidden`}
     >
       <div className="flex items-center justify-between mb-4">
         <div className="text-sm font-semibold text-gray-800">{title}</div>
@@ -344,71 +353,36 @@ export function DataChart({ data, title, chartType = "line", fileId, onChartType
           <div className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded-full font-medium">
             {chartData.length} points
           </div>
-          {fileId && onChartTypeChange && (
-            <ChartTypeSelector currentType={chartType} onTypeChange={handleChartTypeChange} />
+          {fileId && onChartTypeChange && isAuthenticated && (
+            <ChartTypeSelector
+              currentType={chartType}
+              onTypeChange={handleChartTypeChange}
+              isAuthenticated={isAuthenticated}
+            />
           )}
         </div>
       </div>
 
-      {chartType === "pie" ? (
-        <div className="flex flex-col h-auto min-h-[300px]">
-          <div className="flex-1 flex items-center justify-center">
-            <ResponsiveContainer width="100%" height={280}>
-              <PieChart data={chartData} margin={{ top: 20, right: 20, left: 20, bottom: 20 }}>
-                <Pie
-                  data={chartData}
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={110}
-                  innerRadius={45}
-                  paddingAngle={2}
-                  dataKey={valueColumn}
-                  label={
-                    chartData.length <= 6
-                      ? // Use smart label function to prevent overlapping
-                        ({ displayKey, percent }) => {
-                          const percentage = percent * 100
-                          // Only show labels for segments 3% or larger
-                          if (percentage >= 3) {
-                            return `${displayKey} (${percentage.toFixed(0)}%)`
-                          }
-                          return "" // Hide label for small segments
-                        }
-                      : false
-                  }
-                  labelLine={false}
-                >
-                  {chartData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={pieColors[index % pieColors.length]} />
-                  ))}
-                </Pie>
-                <Tooltip content={<PieTooltip />} />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
+      <ResponsiveContainer width="100%" height={chartType === "pie" ? (chartData.length > 6 ? 300 : 320) : 320}>
+        {renderChart()}
+      </ResponsiveContainer>
 
-          {chartData.length > 6 && (
-            <div className="mt-2 pb-2">
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-1 px-4 max-w-full">
-                {chartData.map((entry, index) => (
-                  <div key={`legend-${index}`} className="flex items-center gap-1.5 text-xs min-w-0">
-                    <div
-                      className="w-2.5 h-2.5 rounded-sm flex-shrink-0"
-                      style={{ backgroundColor: pieColors[index % pieColors.length] }}
-                    />
-                    <span className="text-gray-700 truncate font-medium" title={entry.displayKey}>
-                      {entry.displayKey}
-                    </span>
-                  </div>
-                ))}
+      {chartType === "pie" && chartData.length > 6 && (
+        <div className="mt-2 pb-2 px-1 overflow-hidden max-h-20">
+          <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-x-1 gap-y-0.5 text-[9px] leading-tight">
+            {chartData.map((entry, index) => (
+              <div key={`legend-${index}`} className="flex items-center gap-1 min-w-0 overflow-hidden">
+                <div
+                  className="w-1.5 h-1.5 rounded-sm flex-shrink-0"
+                  style={{ backgroundColor: pieColors[index % pieColors.length] }}
+                />
+                <span className="text-gray-700 truncate font-medium" title={entry.displayKey}>
+                  {entry.displayKey}
+                </span>
               </div>
-            </div>
-          )}
+            ))}
+          </div>
         </div>
-      ) : (
-        <ResponsiveContainer width="100%" height={320}>
-          {renderChart()}
-        </ResponsiveContainer>
       )}
     </div>
   )

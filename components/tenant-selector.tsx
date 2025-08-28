@@ -1,11 +1,12 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Building2, ArrowRight } from "lucide-react"
+import { Building2, ArrowRight, AlertCircle } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 interface Tenant {
   tenant_id: string
@@ -17,11 +18,23 @@ export function TenantSelector() {
   const [selectedTenant, setSelectedTenant] = useState<string>("")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string>("")
+  const [isAccessDenied, setIsAccessDenied] = useState(false)
   const router = useRouter()
+  const searchParams = useSearchParams()
 
   useEffect(() => {
+    const errorParam = searchParams.get("error")
+    const tenantParam = searchParams.get("tenant")
+
+    if (errorParam === "access_denied" && tenantParam) {
+      setIsAccessDenied(true)
+      setError(
+        `You don't have permission to access the requested tenant. Please select a tenant you have access to below, or contact your administrator for assistance.`,
+      )
+    }
+
     fetchTenants()
-  }, [])
+  }, [searchParams])
 
   const fetchTenants = async () => {
     try {
@@ -30,8 +43,8 @@ export function TenantSelector() {
         const data = await response.json()
         setTenants(data)
 
-        // If only one tenant, auto-redirect to tenant home page
-        if (data.length === 1) {
+        const errorParam = searchParams.get("error")
+        if (data.length === 1 && errorParam !== "access_denied") {
           router.push(`/${data[0].tenant_id}`)
           return
         }
@@ -49,7 +62,6 @@ export function TenantSelector() {
 
   const handleContinue = () => {
     if (selectedTenant) {
-      // Store selected tenant in localStorage for future visits
       localStorage.setItem("selectedTenant", selectedTenant)
       router.push(`/${selectedTenant}`)
     }
@@ -79,7 +91,15 @@ export function TenantSelector() {
               <CardDescription>Select a tenant to continue to the home page</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {error && <div className="text-sm text-red-500 bg-red-50 p-3 rounded-md">{error}</div>}
+              {error && (
+                <Alert className={isAccessDenied ? "border-red-500 bg-red-50 shadow-lg" : "border-red-200 bg-red-50"}>
+                  <AlertCircle className={`h-4 w-4 ${isAccessDenied ? "text-red-700" : "text-red-600"}`} />
+                  <AlertDescription className={`${isAccessDenied ? "text-red-900 font-medium" : "text-red-800"}`}>
+                    {isAccessDenied && <div className="font-semibold text-red-900 mb-1">Access Denied</div>}
+                    {error}
+                  </AlertDescription>
+                </Alert>
+              )}
 
               <Select value={selectedTenant} onValueChange={setSelectedTenant}>
                 <SelectTrigger>

@@ -9,6 +9,7 @@ interface ChartTypeSelectorProps {
   currentType: string
   onTypeChange: (type: string) => void
   disabled?: boolean
+  isAuthenticated?: boolean
 }
 
 const chartTypes = [
@@ -18,7 +19,12 @@ const chartTypes = [
   { value: "pie", label: "Pie", icon: PieChart },
 ]
 
-export function ChartTypeSelector({ currentType, onTypeChange, disabled }: ChartTypeSelectorProps) {
+export function ChartTypeSelector({
+  currentType,
+  onTypeChange,
+  disabled,
+  isAuthenticated = true,
+}: ChartTypeSelectorProps) {
   const [isUpdating, setIsUpdating] = useState(false)
 
   const currentChart = chartTypes.find((type) => type.value === currentType) || chartTypes[0]
@@ -38,13 +44,24 @@ export function ChartTypeSelector({ currentType, onTypeChange, disabled }: Chart
     }
   }
 
+  const isDisabled = disabled || isUpdating || !isAuthenticated
+
+  if (!isAuthenticated) {
+    return (
+      <div className="h-7 px-2 text-xs text-gray-500 flex items-center">
+        <CurrentIcon className="h-3.5 w-3.5 mr-1" />
+        {currentChart.label}
+      </div>
+    )
+  }
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button
           variant="ghost"
           size="sm"
-          disabled={disabled || isUpdating}
+          disabled={isDisabled}
           className="h-7 px-2 text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-100"
         >
           <CurrentIcon className="h-3.5 w-3.5 mr-1" />

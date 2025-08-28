@@ -2,17 +2,19 @@
 
 import type React from "react"
 import { formatRelativeTime } from "@/lib/time-utils"
+import { useAuth } from "@/components/auth-provider"
 
 import { useState, useCallback, useRef, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { RefreshCw, TrendingUp, Calendar, BarChart3, AlertCircle, Edit2 } from "lucide-react"
+import { RefreshCw, TrendingUp, Calendar, BarChart3, AlertCircle, Edit2, Tv } from "lucide-react"
 import { DataChart } from "@/components/data-chart"
 import { ChartTypeSelector } from "@/components/chart-type-selector"
 import { DashboardSwitcher } from "@/components/dashboard-switcher"
 import { useToast } from "@/hooks/use-toast"
 import { ApiClient } from "@/lib/api-client"
+import Link from "next/link"
 
 interface DataFile {
   id: string
@@ -72,6 +74,8 @@ export function DashboardClient({ tenantId }: DashboardClientProps) {
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
   const { toast } = useToast()
+  const { user } = useAuth()
+  const isAuthenticated = !!user
 
   const handleDashboardChange = useCallback((dashboard: Dashboard) => {
     if (abortControllerRef.current) {
@@ -395,6 +399,17 @@ export function DashboardClient({ tenantId }: DashboardClientProps) {
         currentDashboard={currentDashboard}
       />
 
+      {currentDashboard && (
+        <div className="flex justify-end">
+          <Link href={`/${tenantId}/tv-mode?dashboardId=${currentDashboard.id}`}>
+            <Button variant="outline" size="sm" className="flex items-center gap-2 bg-transparent">
+              <Tv className="h-4 w-4" />
+              TV Mode
+            </Button>
+          </Link>
+        </div>
+      )}
+
       {isLoading && currentDashboard && (
         <div className="space-y-6 animate-in fade-in duration-300">
           <div className="flex items-center justify-center py-4">
@@ -542,6 +557,7 @@ export function DashboardClient({ tenantId }: DashboardClientProps) {
                               currentType={file.chart_type || "line"}
                               onTypeChange={(newType) => updateChartType(file.id, newType)}
                               disabled={isRefreshing || isReordering}
+                              isAuthenticated={isAuthenticated}
                             />
                             <div className="flex items-center text-sm text-muted-foreground">
                               <TrendingUp className="h-4 w-4 mr-1" />
@@ -566,6 +582,7 @@ export function DashboardClient({ tenantId }: DashboardClientProps) {
                                 title={file.type}
                                 chartType={file.chart_type || "line"}
                                 fieldOrder={file.field_order}
+                                isAuthenticated={isAuthenticated}
                               />
                             </div>
                           )

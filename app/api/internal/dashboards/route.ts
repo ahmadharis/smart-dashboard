@@ -22,13 +22,21 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error("❌ Database error:", error)
-      return NextResponse.json({ error: "Database error" }, { status: 500 })
+      console.log("[v0] Debug error details:", JSON.stringify(error, null, 2))
+      return NextResponse.json({ error: "Database error", details: error.message }, { status: 500 })
     }
 
     return NextResponse.json(dashboards || [])
   } catch (error) {
     console.error("💥 Internal API error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    console.log("[v0] Debug error details:", error instanceof Error ? error.message : String(error))
+    return NextResponse.json(
+      {
+        error: "Internal server error",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      { status: 500 },
+    )
   }
 }
 
@@ -49,12 +57,20 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       console.error("❌ Database error:", error)
-      return NextResponse.json({ error: "Database error" }, { status: 500 })
+      console.log("[v0] Debug error details:", JSON.stringify(error, null, 2))
+      return NextResponse.json({ error: "Database error", details: error.message }, { status: 500 })
     }
 
     return NextResponse.json(data)
   } catch (error) {
     console.error("Internal API error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    console.log("[v0] Debug error details:", error instanceof Error ? error.message : String(error))
+    return NextResponse.json(
+      {
+        error: "Internal server error",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      { status: 500 },
+    )
   }
 }
