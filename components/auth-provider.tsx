@@ -35,6 +35,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const processedSessionRef = useRef<string | null>(null)
   const previousAuthStateRef = useRef<string | null>(null)
+  const sessionValidationRef = useRef<boolean>(false)
 
   const loadCachedPermissions = (currentUser: User | null): TenantAccess => {
     if (!currentUser) return {}
@@ -51,7 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
     } catch (error) {
-      console.error("[v0] Error loading cached permissions:", error)
+      console.error("Error loading cached permissions:", error)
     }
 
     return {}
@@ -66,8 +67,56 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       localStorage.setItem(CACHE_KEY, JSON.stringify(cacheData))
     } catch (error) {
-      console.error("[v0] Error saving cached permissions:", error)
+      console.error("Error saving cached permissions:", error)
     }
+  }
+
+  const validateSession = async (): Promise<User | null> => {
+    try {
+      const {
+        data: { session },
+        error,
+      } = await supabase.auth.getSession()
+
+      if (error) {
+        console.error("Session validation error:", error)
+        return null
+      }
+
+      if (!session || !session.user) {
+        return null
+      }
+
+      // Check if token is expired
+      const now = Math.floor(Date.now() / 1000)
+      if (session.expires_at && session.expires_at < now) {
+        const {
+          data: { session: refreshedSession },
+          error: refreshError,
+        } = await supabase.auth.refreshSession()
+
+        if (refreshError || !refreshedSession) {
+          console.error("Session refresh failed:", refreshError)
+          return null
+        }
+
+        return refreshedSession.user
+      }
+
+      return session.user
+    } catch (error) {
+      console.error("Session validation error:", error)
+      return null
+    }
+  }
+
+  const cleanupInvalidSession = () => {
+    setUser(null)
+    setTenantAccess({})
+    localStorage.removeItem(CACHE_KEY)
+    processedSessionRef.current = null
+    previousAuthStateRef.current = null
+    sessionValidationRef.current = false
   }
 
   const fetchTenantPermissions = async (currentUser: User): Promise<TenantAccess> => {
@@ -75,7 +124,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { data, error } = await supabase.from("user_tenants").select("tenant_id").eq("user_id", currentUser.id)
 
       if (error) {
-        console.error("[v0] Error fetching tenant permissions:", error)
+        console.error("Error fetching tenant permissions:", error)
         return {}
       }
 
@@ -86,7 +135,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       return permissions
     } catch (error) {
-      console.error("[v0] Error fetching tenant permissions:", error)
+      console.error("Error fetching tenant permissions:", error)
       return {}
     }
   }
@@ -107,13 +156,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const initializeAuth = async () => {
       try {
-        const {
-          data: { user: currentUser },
-        } = await supabase.auth.getUser()
+        const currentUser = await validateSession()
         setUser(currentUser)
 
         if (currentUser) {
           processedSessionRef.current = currentUser.id
+          sessionValidationRef.current = true
 
           const cached = loadCachedPermissions(currentUser)
           setTenantAccess(cached)
@@ -124,12 +172,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             saveCachedPermissions(fresh, currentUser.id)
           }
         } else {
-          localStorage.removeItem(CACHE_KEY)
-          setTenantAccess({})
-          processedSessionRef.current = null
+          cleanupInvalidSession()
         }
       } catch (error) {
-        console.error("[v0] Error initializing auth:", error)
+        console.error("Error initializing auth:", error)
+        cleanupInvalidSession()
       } finally {
         setIsLoading(false)
       }
@@ -149,17 +196,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (processedSessionRef.current !== session.user.id) {
           setUser(session.user)
           processedSessionRef.current = session.user.id
+          sessionValidationRef.current = true
 
           const fresh = await fetchTenantPermissions(session.user)
           setTenantAccess(fresh)
           saveCachedPermissions(fresh, session.user.id)
         }
       } else if (event === "SIGNED_OUT") {
-        setUser(null)
-        setTenantAccess({})
-        localStorage.removeItem(CACHE_KEY)
-        processedSessionRef.current = null
-        previousAuthStateRef.current = null
+        cleanupInvalidSession()
+      } else if (event === "TOKEN_REFRESHED" && session?.user) {
+        setUser(session.user)
+        sessionValidationRef.current = true
+      } else if (event === "SIGNED_OUT" || (!session && sessionValidationRef.current)) {
+        cleanupInvalidSession()
       }
     })
 
@@ -169,8 +218,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!user) return
 
-    const interval = setInterval(() => {
-      refreshPermissions()
+    const interval = setInterval(async () => {
+      // Validate session every 5 minutes
+      const validUser = await validateSession()
+      if (!validUser) {
+        cleanupInvalidSession()
+      } else {
+        // Refresh permissions
+        refreshPermissions()
+      }
     }, CACHE_DURATION)
 
     return () => clearInterval(interval)

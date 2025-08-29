@@ -38,14 +38,7 @@ export function ProtectedRoute({ children, tenantId }: ProtectedRouteProps) {
   }
 
   if (!user) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="flex items-center space-x-2">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          <span className="text-muted-foreground">Redirecting to login...</span>
-        </div>
-      </div>
-    )
+    return null // Don't render anything while redirecting
   }
 
   const hasAccess = checkTenantAccess(tenantId)

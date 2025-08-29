@@ -35,8 +35,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid email format" }, { status: 400 })
     }
 
-    console.log(`[v0] Processing signup for email: ${email}, domain: ${emailDomain}`)
-
     // Find tenants that match the email domain
     const { data: tenants, error: tenantsError } = await supabase
       .from("tenants")
@@ -44,7 +42,7 @@ export async function POST(request: NextRequest) {
       .not("domain", "is", null)
 
     if (tenantsError) {
-      console.error("[v0] Error fetching tenants:", tenantsError)
+      console.error("Error fetching tenants:", tenantsError)
       return NextResponse.json({ error: "Failed to fetch tenants" }, { status: 500 })
     }
 
@@ -57,8 +55,6 @@ export async function POST(request: NextRequest) {
         return domains.includes(emailDomain)
       }) || []
 
-    console.log(`[v0] Found ${matchingTenants.length} matching tenants for domain: ${emailDomain}`)
-
     // Add user to all matching tenants
     if (matchingTenants.length > 0) {
       const userTenantInserts = matchingTenants.map((tenant) => ({
@@ -69,11 +65,9 @@ export async function POST(request: NextRequest) {
       const { error: insertError } = await supabase.from("user_tenants").insert(userTenantInserts)
 
       if (insertError) {
-        console.error("[v0] Error inserting user_tenants:", insertError)
+        console.error("Error inserting user_tenants:", insertError)
         return NextResponse.json({ error: "Failed to assign tenant access" }, { status: 500 })
       }
-
-      console.log(`[v0] Successfully assigned user to ${matchingTenants.length} tenants`)
 
       return NextResponse.json({
         success: true,
@@ -81,8 +75,6 @@ export async function POST(request: NextRequest) {
         assignedTenants: matchingTenants.map((t) => ({ id: t.tenant_id, name: t.name })),
       })
     } else {
-      console.log(`[v0] No matching tenants found for domain: ${emailDomain}`)
-
       return NextResponse.json({
         success: true,
         message: "No matching tenants found for email domain",
@@ -90,7 +82,7 @@ export async function POST(request: NextRequest) {
       })
     }
   } catch (error) {
-    console.error("[v0] Error in assign-tenant-on-signup:", error)
+    console.error("Error in assign-tenant-on-signup:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
