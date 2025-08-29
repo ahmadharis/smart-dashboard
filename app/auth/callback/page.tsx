@@ -11,37 +11,60 @@ export default function AuthCallback() {
 
   useEffect(() => {
     const handleAuthCallback = async () => {
+      console.log("[v0] Creating Supabase client...")
+      try {
+        const supabase = createClient()
+        console.log("[v0] Supabase client created successfully")
+      } catch (clientError) {
+        console.error("[v0] Failed to create Supabase client:", clientError)
+        setError("Configuration error. Please contact support.")
+        return
+      }
+
       const supabase = createClient()
       const code = searchParams.get("code")
 
       console.log("[v0] Callback started with code:", code ? "present" : "missing")
+      if (code) {
+        console.log("[v0] Code length:", code.length)
+        console.log("[v0] Code preview:", code.substring(0, 20) + "...")
+      }
 
       if (code) {
         try {
+          console.log("[v0] Starting exchangeCodeForSession...")
+          const startTime = Date.now()
           const { data, error } = await supabase.auth.exchangeCodeForSession(code)
+          const endTime = Date.now()
+          console.log("[v0] Exchange completed in", endTime - startTime, "ms")
 
-          console.log("[v0] Exchange result:", { hasSession: !!data.session, error: error?.message })
+          console.log("[v0] Exchange result:", {
+            hasSession: !!data.session,
+            hasUser: !!data.user,
+            error: error?.message,
+          })
 
           if (error) {
             console.error("[v0] Email verification error:", error)
             setError("Email verification failed. Please try again.")
-            setTimeout(() => router.push("/auth/login?error=verification-failed"), 2000)
+            setTimeout(() => router.push("/auth/login?error=verification-failed"), 3000)
             return
           }
 
-          if (data.session) {
-            console.log("[v0] Email verified successfully, redirecting...")
-            window.location.href = "/"
+          if (data.session && data.user) {
+            console.log("[v0] Email verified successfully, user:", data.user.email)
+            router.push("/")
             return
           }
         } catch (err) {
           console.error("[v0] Callback error:", err)
           setError("Verification failed. Please try again.")
-          setTimeout(() => router.push("/auth/login"), 2000)
+          setTimeout(() => router.push("/auth/login"), 3000)
           return
         }
       }
 
+      console.log("[v0] No code found, checking for existing session...")
       try {
         const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
 
@@ -54,7 +77,7 @@ export default function AuthCallback() {
 
         if (sessionData.session) {
           console.log("[v0] Session found, redirecting to dashboard")
-          window.location.href = "/"
+          router.push("/")
         } else {
           console.log("[v0] No session, redirecting to login")
           setTimeout(() => router.push("/auth/login"), 1000)
@@ -66,17 +89,7 @@ export default function AuthCallback() {
       }
     }
 
-    const timeoutId = setTimeout(() => {
-      console.log("[v0] Callback timeout, redirecting to login")
-      setError("Verification is taking too long. Redirecting...")
-      router.push("/auth/login")
-    }, 10000) // 10 second timeout
-
-    handleAuthCallback().finally(() => {
-      clearTimeout(timeoutId)
-    })
-
-    return () => clearTimeout(timeoutId)
+    handleAuthCallback()
   }, [router, searchParams])
 
   return (
