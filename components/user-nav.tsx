@@ -1,6 +1,5 @@
 "use client"
 
-import { useState, useEffect } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import {
@@ -15,43 +14,19 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { User, LogOut, Settings } from "lucide-react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import type { User as SupabaseUser } from "@supabase/supabase-js"
+import { useAuth } from "@/components/auth-provider"
 
 export function UserNav() {
-  const [user, setUser] = useState<SupabaseUser | null>(null)
-  const [loading, setLoading] = useState(true)
+  const { user, isLoading } = useAuth()
   const router = useRouter()
   const supabase = createClient()
-
-  useEffect(() => {
-    // Get initial user
-    const getUser = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      setUser(user)
-      setLoading(false)
-    }
-
-    getUser()
-
-    // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
-      setUser(session?.user ?? null)
-      setLoading(false)
-    })
-
-    return () => subscription.unsubscribe()
-  }, [supabase.auth])
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
     router.push("/")
   }
 
-  if (loading) {
+  if (isLoading) {
     return <div className="h-8 w-8 animate-pulse bg-muted rounded-full" />
   }
 
