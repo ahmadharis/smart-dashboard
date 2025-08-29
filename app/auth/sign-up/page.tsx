@@ -10,20 +10,19 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useState, useEffect } from "react"
-import { BarChart3, CheckCircle } from "lucide-react"
+import { BarChart3, AlertCircle } from "lucide-react"
 import { Navigation } from "@/components/navigation"
 
-export default function LoginPage() {
+export default function SignUpPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
 
   const redirectTo = searchParams.get("redirectTo") || "/"
-  const message = searchParams.get("message")
 
   useEffect(() => {
     const checkUser = async () => {
@@ -36,31 +35,64 @@ export default function LoginPage() {
       }
     }
     checkUser()
+  }, [router, redirectTo])
 
-    if (message === "signup-success") {
-      setSuccess("Account created successfully! Please check your email to verify your account.")
-    }
-  }, [router, redirectTo, message])
-
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
-    const supabase = createClient()
     setIsLoading(true)
     setError(null)
 
+    // Validate passwords match
+    if (password !== confirmPassword) {
+      setError("Passwords do not match")
+      setIsLoading(false)
+      return
+    }
+
+    // Validate password strength
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters long")
+      setIsLoading(false)
+      return
+    }
+
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const supabase = createClient()
+
+      const { data, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          emailRedirectTo: process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || `${window.location.origin}/`,
+          emailRedirectTo:
+            process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || `${window.location.origin}/auth/callback`,
         },
       })
-      if (error) throw error
 
-      router.push(redirectTo)
+      if (signUpError) throw signUpError
+
+      if (data.user) {
+        // Call our API to handle tenant assignment based on email domain
+        const response = await fetch("/api/auth/assign-tenant-on-signup", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            userId: data.user.id,
+            email: data.user.email,
+          }),
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          console.error("Tenant assignment error:", errorData)
+          // Don't fail the signup if tenant assignment fails
+        }
+
+        router.push("/auth/sign-up-success")
+      }
     } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "An error occurred")
+      setError(error instanceof Error ? error.message : "An error occurred during sign up")
     } finally {
       setIsLoading(false)
     }
@@ -83,18 +115,11 @@ export default function LoginPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-2xl text-center">Welcome Back</CardTitle>
-              <CardDescription className="text-center">Sign in to your account to continue</CardDescription>
+              <CardTitle className="text-2xl text-center">Create Account</CardTitle>
+              <CardDescription className="text-center">Sign up to get started with Smart Dashboard</CardDescription>
             </CardHeader>
             <CardContent>
-              {success && (
-                <Alert className="border-green-200 bg-green-50 mb-4">
-                  <CheckCircle className="h-4 w-4 text-green-600" />
-                  <AlertDescription className="text-green-800">{success}</AlertDescription>
-                </Alert>
-              )}
-
-              <form onSubmit={handleLogin} className="space-y-4">
+              <form onSubmit={handleSignUp} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
                   <Input
@@ -117,20 +142,34 @@ export default function LoginPage() {
                     onChange={(e) => setPassword(e.target.value)}
                   />
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="confirmPassword">Confirm Password</Label>
+                  <Input
+                    id="confirmPassword"
+                    type="password"
+                    placeholder="Confirm your password"
+                    required
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                  />
+                </div>
+
                 {error && (
-                  <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3">
-                    <p className="text-sm text-destructive">{error}</p>
-                  </div>
+                  <Alert className="border-red-200 bg-red-50">
+                    <AlertCircle className="h-4 w-4 text-red-600" />
+                    <AlertDescription className="text-red-800">{error}</AlertDescription>
+                  </Alert>
                 )}
+
                 <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading ? "Signing in..." : "Sign In"}
+                  {isLoading ? "Creating Account..." : "Sign Up"}
                 </Button>
               </form>
 
               <div className="mt-4 text-center text-sm">
-                Don't have an account?{" "}
-                <Link href="/auth/sign-up" className="underline underline-offset-4 hover:text-primary">
-                  Sign up
+                Already have an account?{" "}
+                <Link href="/auth/login" className="underline underline-offset-4 hover:text-primary">
+                  Sign in
                 </Link>
               </div>
             </CardContent>
