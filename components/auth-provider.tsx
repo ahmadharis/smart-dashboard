@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from "react"
+import { createContext, useContext, useEffect, useState, useCallback, useMemo, type ReactNode } from "react"
 import { createClient } from "@/lib/supabase/client"
 import type { User } from "@supabase/supabase-js"
 
@@ -22,7 +22,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [tenantAccess, setTenantAccess] = useState<TenantAccess>({})
-  const supabase = createClient()
+
+  const supabase = useMemo(() => createClient(), [])
 
   const fetchTenantPermissions = async (currentUser: User): Promise<TenantAccess> => {
     try {
@@ -97,9 +98,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
 
     return () => {
-      subscription.unsubscribe()
+      if (subscription?.unsubscribe) {
+        subscription.unsubscribe()
+      }
     }
-  }, [supabase])
+  }, []) // Removed supabase from dependency array since it's now memoized
 
   return (
     <AuthContext.Provider
