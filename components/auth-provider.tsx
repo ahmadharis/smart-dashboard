@@ -35,7 +35,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Debounce identical events within 1 second
     if (lastEvent && lastEvent.event === event && now - lastEvent.timestamp < 1000) {
-      console.log(`[v0] Auth - Debouncing ${event} event`)
       return false
     }
 
@@ -45,15 +44,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const fetchTenantPermissions = useCallback(async (currentUser: User): Promise<TenantAccess> => {
     if (isFetchingPermissions.current) {
-      console.log("[v0] Auth - Already fetching permissions, skipping")
       return {}
     }
 
     isFetchingPermissions.current = true
 
     try {
-      console.log("[v0] Auth - Fetching tenant permissions for user:", currentUser.id)
-
       let lastError: Error | null = null
       for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
@@ -76,17 +72,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
 
           const data = await response.json()
-          console.log(
-            "[v0] Auth - Successfully fetched tenant permissions:",
-            `Found access to ${Object.keys(data.tenantAccess || {}).length} tenants`,
-          )
           retryCount.current = 0 // Reset retry count on success
           return data.tenantAccess || {}
         } catch (error) {
           lastError = error as Error
           if (attempt < maxRetries) {
             const delay = Math.pow(2, attempt) * 1000 // Exponential backoff: 1s, 2s, 4s
-            console.log(`[v0] Auth - Attempt ${attempt + 1} failed, retrying in ${delay}ms:`, error)
             await new Promise((resolve) => setTimeout(resolve, delay))
           }
         }
@@ -94,7 +85,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       throw lastError || new Error("Max retries exceeded")
     } catch (error) {
-      console.error("[v0] Auth - Failed to fetch tenant permissions:", error)
       retryCount.current++
       return {}
     } finally {
@@ -105,7 +95,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const refreshPermissions = useCallback(async () => {
     const currentUser = user
     if (!currentUser) {
-      console.log("[v0] Auth - No user available for permission refresh")
       return
     }
 
@@ -127,18 +116,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const initializeAuth = async () => {
       if (initializationComplete) return
 
-      console.log("[v0] Auth - Initializing auth state")
       try {
         const {
           data: { session },
         } = await supabase.auth.getSession()
 
-        console.log("[v0] Auth - Initial session:", { hasSession: !!session, hasUser: !!session?.user })
-
         if (!mounted) return
 
         if (session?.user) {
-          console.log("[v0] Auth - Setting user from initial session")
           setUser(session.user)
 
           try {
@@ -149,21 +134,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               initializationComplete = true
             }
           } catch (error) {
-            console.error("[v0] Auth - Error fetching permissions during init:", error)
             if (mounted) {
               setIsLoading(false)
               initializationComplete = true
             }
           }
         } else {
-          console.log("[v0] Auth - No initial session found")
           if (mounted) {
             setIsLoading(false)
             initializationComplete = true
           }
         }
       } catch (error) {
-        console.error("[v0] Auth - Error initializing auth:", error)
         if (mounted) {
           setIsLoading(false)
           initializationComplete = true
@@ -180,13 +162,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return
       }
 
-      console.log("[v0] Auth - State change event:", event, { hasSession: !!session, hasUser: !!session?.user })
-
       if (!mounted) return
 
       try {
         if (event === "SIGNED_IN" && session?.user) {
-          console.log("[v0] Auth - User signed in, updating state")
           setUser(session.user)
 
           try {
@@ -196,26 +175,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               setIsLoading(false)
             }
           } catch (error) {
-            console.error("[v0] Auth - Error fetching permissions after sign in:", error)
             if (mounted) {
               setIsLoading(false)
             }
           }
         } else if (event === "SIGNED_OUT") {
-          console.log("[v0] Auth - User signed out")
           if (mounted) {
             setUser(null)
             setTenantAccess({})
             setIsLoading(false)
           }
         } else if (event === "INITIAL_SESSION") {
-          console.log("[v0] Auth - Initial session event handled")
           if (initializationComplete) {
             return
           }
         }
       } catch (error) {
-        console.error("[v0] Auth - Auth state change error:", error)
         if (mounted) {
           setIsLoading(false)
         }

@@ -31,9 +31,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (user && !authLoading && !hasRedirected.current) {
-      console.log("[v0] Login page - User authenticated, redirecting to:", redirectTo)
       hasRedirected.current = true
-      // Use window.location for more reliable redirect
       window.location.href = redirectTo
     }
   }, [user, authLoading, redirectTo])
@@ -67,8 +65,6 @@ export default function LoginPage() {
     setError(null)
     hasRedirected.current = false
 
-    console.log("[v0] Login - Starting sign in process")
-
     try {
       const { error } = await supabase.auth.signInWithPassword({
         email,
@@ -79,13 +75,9 @@ export default function LoginPage() {
       })
 
       if (error) {
-        console.log("[v0] Login - Sign in error:", error.message)
         throw error
       }
-
-      console.log("[v0] Login - Sign in successful, waiting for auth state change")
     } catch (error: unknown) {
-      console.log("[v0] Login - Caught error:", error)
       if (error instanceof Error) {
         if (error.message.includes("Invalid login credentials")) {
           setError("Invalid email or password. Please check your credentials and try again.")

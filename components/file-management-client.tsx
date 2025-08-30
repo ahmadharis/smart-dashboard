@@ -87,6 +87,7 @@ export function FileManagementClient({ tenantId }: FileManagementClientProps) {
   const [isReordering, setIsReordering] = useState(false)
   const [draggedDashboard, setDraggedDashboard] = useState<string | null>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
+  const [error, setError] = useState<string>("")
 
   // Settings state
   const [newSettingKey, setNewSettingKey] = useState("")
@@ -224,42 +225,27 @@ export function FileManagementClient({ tenantId }: FileManagementClientProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-
-    console.log("[v0] Form submission started")
+    setIsSubmitting(true)
+    setError("")
 
     if (!xmlInput.trim()) {
-      console.log("[v0] Validation failed: No XML input")
-      toast({
-        title: "Error",
-        description: "Please enter XML data",
-        variant: "destructive",
-      })
+      setError("Please provide XML input")
+      setIsSubmitting(false)
       return
     }
 
     if (selectedDashboard === "new" && !newDashboardTitle.trim()) {
-      console.log("[v0] Validation failed: No dashboard title for new dashboard")
-      toast({
-        title: "Error",
-        description: "Please enter a dashboard title",
-        variant: "destructive",
-      })
+      setError("Please provide a title for the new dashboard")
+      setIsSubmitting(false)
       return
     }
 
     const finalDataType = selectedType === "custom" ? customType.trim() : selectedType
     if (!finalDataType) {
-      console.log("[v0] Validation failed: No data type selected")
-      toast({
-        title: "Error",
-        description: "Please select or enter a data type",
-        variant: "destructive",
-      })
+      setError("Please select a data type")
+      setIsSubmitting(false)
       return
     }
-
-    console.log("[v0] Form validation passed, starting submission")
-    setIsSubmitting(true)
 
     try {
       const formData = new FormData()
@@ -274,13 +260,10 @@ export function FileManagementClient({ tenantId }: FileManagementClientProps) {
         }
       }
 
-      console.log("[v0] Making API request to /api/internal/data-files")
       const response = await ApiClient.post("/api/internal/data-files", formData, { tenantId })
-      console.log("[v0] API response received:", response.status, response.ok)
 
       if (response.ok) {
         const result = await response.json()
-        console.log("[v0] API response data:", result)
 
         await loadDataFiles()
         await loadDashboards() // Refresh dashboards in case a new one was created
@@ -297,20 +280,13 @@ export function FileManagementClient({ tenantId }: FileManagementClientProps) {
           description: result.message || "XML data uploaded successfully",
         })
       } else {
-        const error = await response.json()
-        console.log("[v0] API error response:", error)
-        throw new Error(error.error || "Failed to upload XML data")
+        const error = await response.json().catch(() => ({ error: "Unknown error occurred" }))
+        setError(error.error || "Failed to upload file")
       }
     } catch (error) {
-      console.log("[v0] Exception caught:", error)
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to upload XML data",
-        variant: "destructive",
-      })
+      setError("An unexpected error occurred. Please try again.")
     } finally {
       setIsSubmitting(false)
-      console.log("[v0] Form submission completed")
     }
   }
 
@@ -1124,6 +1100,12 @@ export function FileManagementClient({ tenantId }: FileManagementClientProps) {
                         className="min-h-[200px] font-mono text-sm"
                       />
                     </div>
+
+                    {error && (
+                      <p className="text-red-500 text-sm" role="alert">
+                        {error}
+                      </p>
+                    )}
 
                     <Button type="button" onClick={handleSubmit} disabled={isSubmitting} className="w-full">
                       <Upload className="h-4 w-4 mr-2" />
