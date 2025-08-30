@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useEffect, useState, useCallback, useMemo, type ReactNode } from "react"
+import { createContext, useContext, useEffect, useState, useCallback, useMemo, useRef, type ReactNode } from "react"
 import { createClient } from "@/lib/supabase/client"
 import type { User } from "@supabase/supabase-js"
 
@@ -23,56 +23,151 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
   const [tenantAccess, setTenantAccess] = useState<TenantAccess>({})
 
+  const isFetchingPermissions = useRef(false)
+  const lastAuthEvent = useRef<{ event: string; timestamp: number } | null>(null)
+  const retryCount = useRef(0)
+  const maxRetries = 3
   const supabase = useMemo(() => createClient(), [])
 
-  const fetchTenantPermissions = async (currentUser: User): Promise<TenantAccess> => {
-    try {
-      const { data, error } = await supabase.from("user_tenants").select("tenant_id").eq("user_id", currentUser.id)
+  const shouldProcessAuthEvent = useCallback((event: string): boolean => {
+    const now = Date.now()
+    const lastEvent = lastAuthEvent.current
 
-      if (error) {
-        console.error("Error fetching tenant permissions:", error)
-        return {}
-      }
+    // Debounce identical events within 1 second
+    if (lastEvent && lastEvent.event === event && now - lastEvent.timestamp < 1000) {
+      console.log(`[v0] Auth - Debouncing ${event} event`)
+      return false
+    }
 
-      const permissions: TenantAccess = {}
-      data?.forEach((row) => {
-        permissions[row.tenant_id] = true
-      })
+    lastAuthEvent.current = { event, timestamp: now }
+    return true
+  }, [])
 
-      return permissions
-    } catch (error) {
-      console.error("Error fetching tenant permissions:", error)
+  const fetchTenantPermissions = useCallback(async (currentUser: User): Promise<TenantAccess> => {
+    if (isFetchingPermissions.current) {
+      console.log("[v0] Auth - Already fetching permissions, skipping")
       return {}
     }
-  }
+
+    isFetchingPermissions.current = true
+
+    try {
+      console.log("[v0] Auth - Fetching tenant permissions for user:", currentUser.id)
+
+      let lastError: Error | null = null
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+          const response = await fetch("/api/internal/tenant-permissions", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ userId: currentUser.id }),
+            signal: AbortSignal.timeout(10000), // 10 second timeout
+          })
+
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+          }
+
+          const contentType = response.headers.get("content-type")
+          if (!contentType || !contentType.includes("application/json")) {
+            throw new Error("Non-JSON response from tenant permissions API")
+          }
+
+          const data = await response.json()
+          console.log(
+            "[v0] Auth - Successfully fetched tenant permissions:",
+            `Found access to ${Object.keys(data.tenantAccess || {}).length} tenants`,
+          )
+          retryCount.current = 0 // Reset retry count on success
+          return data.tenantAccess || {}
+        } catch (error) {
+          lastError = error as Error
+          if (attempt < maxRetries) {
+            const delay = Math.pow(2, attempt) * 1000 // Exponential backoff: 1s, 2s, 4s
+            console.log(`[v0] Auth - Attempt ${attempt + 1} failed, retrying in ${delay}ms:`, error)
+            await new Promise((resolve) => setTimeout(resolve, delay))
+          }
+        }
+      }
+
+      throw lastError || new Error("Max retries exceeded")
+    } catch (error) {
+      console.error("[v0] Auth - Failed to fetch tenant permissions:", error)
+      retryCount.current++
+      return {}
+    } finally {
+      isFetchingPermissions.current = false
+    }
+  }, [])
 
   const refreshPermissions = useCallback(async () => {
-    if (!user) return
+    const currentUser = user
+    if (!currentUser) {
+      console.log("[v0] Auth - No user available for permission refresh")
+      return
+    }
 
-    const freshPermissions = await fetchTenantPermissions(user)
+    const freshPermissions = await fetchTenantPermissions(currentUser)
     setTenantAccess(freshPermissions)
-  }, [user])
+  }, [fetchTenantPermissions]) // Removed user dependency
 
-  const checkTenantAccess = (tenantId: string): boolean => {
-    return tenantAccess[tenantId] === true
-  }
+  const checkTenantAccess = useCallback(
+    (tenantId: string): boolean => {
+      return tenantAccess[tenantId] === true
+    },
+    [tenantAccess],
+  )
 
   useEffect(() => {
+    let mounted = true
+    let initializationComplete = false
+
     const initializeAuth = async () => {
+      if (initializationComplete) return
+
+      console.log("[v0] Auth - Initializing auth state")
       try {
         const {
           data: { session },
         } = await supabase.auth.getSession()
 
+        console.log("[v0] Auth - Initial session:", { hasSession: !!session, hasUser: !!session?.user })
+
+        if (!mounted) return
+
         if (session?.user) {
+          console.log("[v0] Auth - Setting user from initial session")
           setUser(session.user)
-          const permissions = await fetchTenantPermissions(session.user)
-          setTenantAccess(permissions)
+
+          try {
+            const permissions = await fetchTenantPermissions(session.user)
+            if (mounted) {
+              setTenantAccess(permissions)
+              setIsLoading(false)
+              initializationComplete = true
+            }
+          } catch (error) {
+            console.error("[v0] Auth - Error fetching permissions during init:", error)
+            if (mounted) {
+              setIsLoading(false)
+              initializationComplete = true
+            }
+          }
+        } else {
+          console.log("[v0] Auth - No initial session found")
+          if (mounted) {
+            setIsLoading(false)
+            initializationComplete = true
+          }
         }
       } catch (error) {
-        console.error("Error initializing auth:", error)
-      } finally {
-        setIsLoading(false)
+        console.error("[v0] Auth - Error initializing auth:", error)
+        if (mounted) {
+          setIsLoading(false)
+          initializationComplete = true
+        }
       }
     }
 
@@ -81,42 +176,72 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!shouldProcessAuthEvent(event)) {
+        return
+      }
+
+      console.log("[v0] Auth - State change event:", event, { hasSession: !!session, hasUser: !!session?.user })
+
+      if (!mounted) return
+
       try {
         if (event === "SIGNED_IN" && session?.user) {
+          console.log("[v0] Auth - User signed in, updating state")
           setUser(session.user)
-          const permissions = await fetchTenantPermissions(session.user)
-          setTenantAccess(permissions)
+
+          try {
+            const permissions = await fetchTenantPermissions(session.user)
+            if (mounted) {
+              setTenantAccess(permissions)
+              setIsLoading(false)
+            }
+          } catch (error) {
+            console.error("[v0] Auth - Error fetching permissions after sign in:", error)
+            if (mounted) {
+              setIsLoading(false)
+            }
+          }
         } else if (event === "SIGNED_OUT") {
-          setUser(null)
-          setTenantAccess({})
+          console.log("[v0] Auth - User signed out")
+          if (mounted) {
+            setUser(null)
+            setTenantAccess({})
+            setIsLoading(false)
+          }
+        } else if (event === "INITIAL_SESSION") {
+          console.log("[v0] Auth - Initial session event handled")
+          if (initializationComplete) {
+            return
+          }
         }
       } catch (error) {
-        console.error("Auth state change error:", error)
-      } finally {
-        setIsLoading(false)
+        console.error("[v0] Auth - Auth state change error:", error)
+        if (mounted) {
+          setIsLoading(false)
+        }
       }
     })
 
     return () => {
+      mounted = false
       if (subscription?.unsubscribe) {
         subscription.unsubscribe()
       }
     }
-  }, []) // Removed supabase from dependency array since it's now memoized
+  }, [supabase, fetchTenantPermissions, shouldProcessAuthEvent])
 
-  return (
-    <AuthContext.Provider
-      value={{
-        user,
-        isLoading,
-        tenantAccess,
-        checkTenantAccess,
-        refreshPermissions,
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
+  const contextValue = useMemo(
+    () => ({
+      user,
+      isLoading,
+      tenantAccess,
+      checkTenantAccess,
+      refreshPermissions,
+    }),
+    [user, isLoading, tenantAccess, checkTenantAccess, refreshPermissions],
   )
+
+  return <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>
 }
 
 export function useAuth() {

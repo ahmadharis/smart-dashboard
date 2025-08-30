@@ -9,9 +9,10 @@ import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { BarChart3, CheckCircle, AlertCircle } from "lucide-react"
 import { Navigation } from "@/components/navigation"
+import { useAuth } from "@/components/auth-provider"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
@@ -21,23 +22,23 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { user, isLoading: authLoading } = useAuth()
+  const hasRedirected = useRef(false)
 
   const redirectTo = searchParams.get("redirectTo") || "/"
   const message = searchParams.get("message")
   const errorParam = searchParams.get("error")
 
   useEffect(() => {
-    const checkUser = async () => {
-      const supabase = createClient()
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (user) {
-        router.push(redirectTo)
-      }
+    if (user && !authLoading && !hasRedirected.current) {
+      console.log("[v0] Login page - User authenticated, redirecting to:", redirectTo)
+      hasRedirected.current = true
+      // Use window.location for more reliable redirect
+      window.location.href = redirectTo
     }
-    checkUser()
+  }, [user, authLoading, redirectTo])
 
+  useEffect(() => {
     if (message === "signup-success") {
       setSuccess("Account created successfully! Please check your email to verify your account.")
     }
@@ -64,6 +65,9 @@ export default function LoginPage() {
     const supabase = createClient()
     setIsLoading(true)
     setError(null)
+    hasRedirected.current = false
+
+    console.log("[v0] Login - Starting sign in process")
 
     try {
       const { error } = await supabase.auth.signInWithPassword({
@@ -73,10 +77,15 @@ export default function LoginPage() {
           emailRedirectTo: process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || `${window.location.origin}/`,
         },
       })
-      if (error) throw error
 
-      router.push(redirectTo)
+      if (error) {
+        console.log("[v0] Login - Sign in error:", error.message)
+        throw error
+      }
+
+      console.log("[v0] Login - Sign in successful, waiting for auth state change")
     } catch (error: unknown) {
+      console.log("[v0] Login - Caught error:", error)
       if (error instanceof Error) {
         if (error.message.includes("Invalid login credentials")) {
           setError("Invalid email or password. Please check your credentials and try again.")

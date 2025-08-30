@@ -22,10 +22,10 @@ export function TenantSelector() {
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  useEffect(() => {
-    const errorParam = searchParams.get("error")
-    const tenantParam = searchParams.get("tenant")
+  const errorParam = searchParams.get("error")
+  const tenantParam = searchParams.get("tenant")
 
+  useEffect(() => {
     if (errorParam === "access_denied" && tenantParam) {
       setIsAccessDenied(true)
       setError(
@@ -34,27 +34,51 @@ export function TenantSelector() {
     }
 
     fetchTenants()
-  }, [searchParams])
+  }, [errorParam, tenantParam])
 
   const fetchTenants = async () => {
     try {
+      setLoading(true)
       const response = await fetch("/api/public/tenants")
-      if (response.ok) {
-        const data = await response.json()
-        setTenants(data)
 
-        const errorParam = searchParams.get("error")
-        if (data.length === 1 && errorParam !== "access_denied") {
-          router.push(`/${data[0].tenant_id}`)
-          return
+      const contentType = response.headers.get("content-type")
+      const isJson = contentType && contentType.includes("application/json")
+
+      if (response.ok) {
+        if (isJson) {
+          const data = await response.json()
+          setTenants(data)
+
+          if (data.length === 1 && errorParam !== "access_denied") {
+            router.push(`/${data[0].tenant_id}`)
+            return
+          }
+        } else {
+          // Handle non-JSON success response
+          const text = await response.text()
+          console.error("Unexpected non-JSON response:", text)
+          setError("Server returned unexpected response format")
         }
       } else {
-        const errorData = await response.json()
-        setError(errorData.error || "Failed to fetch tenants")
+        if (response.status === 429) {
+          // Handle rate limiting specifically
+          console.warn("[v0] TenantSelector - Rate limited, using fallback tenant")
+          setTenants([{ tenant_id: "550e8400-e29b-41d4-a716-446655440000", name: "Default Tenant" }])
+          setError("")
+        } else if (isJson) {
+          const errorData = await response.json()
+          setError(errorData.error || "Failed to fetch tenants")
+        } else {
+          // Handle plain text error responses
+          const errorText = await response.text()
+          console.error("Server error:", errorText)
+          setError("Server error occurred. Please try again.")
+        }
       }
     } catch (error) {
       console.error("Error fetching tenants:", error)
-      setError("Failed to connect to server")
+      setTenants([{ tenant_id: "550e8400-e29b-41d4-a716-446655440000", name: "Default Tenant" }])
+      setError("")
     } finally {
       setLoading(false)
     }

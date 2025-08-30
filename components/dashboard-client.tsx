@@ -72,6 +72,7 @@ export function DashboardClient({ tenantId }: DashboardClientProps) {
   const [draggedChart, setDraggedChart] = useState<string | null>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
+  const mountedRef = useRef(true)
   const { toast } = useToast()
   const { user } = useAuth()
   const isAuthenticated = !!user
@@ -89,7 +90,7 @@ export function DashboardClient({ tenantId }: DashboardClientProps) {
 
   const refreshData = useCallback(
     async (useCache = true) => {
-      if (!currentDashboard) return
+      if (!currentDashboard || !mountedRef.current) return
 
       const cacheKey = `${tenantId}-${currentDashboard.id}`
       const cached = dataCache.get(cacheKey)
@@ -97,8 +98,10 @@ export function DashboardClient({ tenantId }: DashboardClientProps) {
 
       if (useCache && cached && now - cached.timestamp < CACHE_DURATION) {
         const sortedData = cached.data.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
-        setDataFiles(sortedData)
-        setIsLoading(false)
+        if (mountedRef.current) {
+          setDataFiles(sortedData)
+          setIsLoading(false)
+        }
         return
       }
 
@@ -107,8 +110,10 @@ export function DashboardClient({ tenantId }: DashboardClientProps) {
       }
 
       abortControllerRef.current = new AbortController()
-      setIsRefreshing(true)
-      setError(null)
+      if (mountedRef.current) {
+        setIsRefreshing(true)
+        setError(null)
+      }
 
       try {
         const response = await ApiClient.get(`/api/internal/data-files?dashboardId=${currentDashboard.id}`, {
@@ -128,39 +133,70 @@ export function DashboardClient({ tenantId }: DashboardClientProps) {
 
         dataCache.set(cacheKey, { data: sortedFiles, timestamp: now })
 
-        setDataFiles(sortedFiles)
-        setRetryCount(0)
+        if (mountedRef.current) {
+          setDataFiles(sortedFiles)
+          setRetryCount(0)
+        }
       } catch (error: any) {
         if (error.name === "AbortError") {
           return // Request was cancelled, don't update state
         }
 
         console.error("Failed to refresh data:", error)
-        setError(error.message || "Failed to load dashboard data")
 
-        if (retryCount < 3) {
-          const delay = Math.pow(2, retryCount) * 1000 // 1s, 2s, 4s
-          setTimeout(() => {
-            setRetryCount((prev) => prev + 1)
-            refreshData(false)
-          }, delay)
-        } else {
-          toast({
-            title: "Connection Error",
-            description: "Failed to load dashboard data after multiple attempts",
-            variant: "destructive",
+        if (mountedRef.current) {
+          setError(error.message || "Failed to load dashboard data")
+
+          setRetryCount((currentRetryCount) => {
+            if (currentRetryCount < 3) {
+              const delay = Math.pow(2, currentRetryCount) * 1000 // 1s, 2s, 4s
+              setTimeout(() => {
+                if (mountedRef.current) {
+                  refreshData(false)
+                }
+              }, delay)
+              return currentRetryCount + 1
+            } else {
+              toast({
+                title: "Connection Error",
+                description: "Failed to load dashboard data after multiple attempts",
+                variant: "destructive",
+              })
+              return currentRetryCount
+            }
           })
         }
       } finally {
-        setIsRefreshing(false)
-        setIsLoading(false)
+        if (mountedRef.current) {
+          setIsRefreshing(false)
+          setIsLoading(false)
+        }
       }
     },
-    [currentDashboard, retryCount, toast, tenantId],
+    [tenantId, toast],
   )
+
+  useEffect(() => {
+    if (currentDashboard && mountedRef.current) {
+      console.log("[v0] Dashboard - Loading data for dashboard:", currentDashboard.id)
+      refreshData(true)
+    }
+  }, [currentDashboard, tenantId])
+
+  useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+      }
+    }
+  }, [])
 
   const updateChartType = useCallback(
     async (fileId: string, newChartType: string) => {
+      if (!mountedRef.current) return
+
       const originalFiles = dataFiles
       setDataFiles((prev) => prev.map((file) => (file.id === fileId ? { ...file, chart_type: newChartType } : file)))
 
@@ -179,20 +215,23 @@ export function DashboardClient({ tenantId }: DashboardClientProps) {
           dataCache.delete(`${tenantId}-${currentDashboard.id}`)
         }
 
-        toast({
-          title: "Success",
-          description: "Chart type updated successfully",
-        })
+        if (mountedRef.current) {
+          toast({
+            title: "Success",
+            description: "Chart type updated successfully",
+          })
+        }
       } catch (error) {
         console.error("Error updating chart type:", error)
 
-        setDataFiles(originalFiles)
-
-        toast({
-          title: "Error",
-          description: "Failed to update chart type",
-          variant: "destructive",
-        })
+        if (mountedRef.current) {
+          setDataFiles(originalFiles)
+          toast({
+            title: "Error",
+            description: "Failed to update chart type",
+            variant: "destructive",
+          })
+        }
         throw error
       }
     },
@@ -201,6 +240,8 @@ export function DashboardClient({ tenantId }: DashboardClientProps) {
 
   const handleMoveChart = useCallback(
     async (fileId: string, direction: "up" | "down") => {
+      if (!mountedRef.current) return
+
       const currentIndex = dataFiles.findIndex((f) => f.id === fileId)
       if (currentIndex === -1) return
 
@@ -221,7 +262,7 @@ export function DashboardClient({ tenantId }: DashboardClientProps) {
 
         const response = await ApiClient.patch("/api/internal/data-files/reorder", { updates }, { tenantId })
 
-        if (response.ok) {
+        if (response.ok && mountedRef.current) {
           const updatedFiles = newDataFiles.map((file, index) => ({
             ...file,
             sort_order: index,
@@ -240,14 +281,18 @@ export function DashboardClient({ tenantId }: DashboardClientProps) {
           throw new Error("Failed to update chart order")
         }
       } catch (error) {
-        toast({
-          title: "Error",
-          description: "Failed to update chart order. Please try again.",
-          variant: "destructive",
-        })
-        await refreshData(false)
+        if (mountedRef.current) {
+          toast({
+            title: "Error",
+            description: "Failed to update chart order. Please try again.",
+            variant: "destructive",
+          })
+          refreshData(false)
+        }
       } finally {
-        setIsReordering(false)
+        if (mountedRef.current) {
+          setIsReordering(false)
+        }
       }
     },
     [dataFiles, currentDashboard, toast, refreshData, tenantId],
@@ -288,7 +333,7 @@ export function DashboardClient({ tenantId }: DashboardClientProps) {
     e.preventDefault()
     setDragOverIndex(null)
 
-    if (!draggedChart) return
+    if (!draggedChart || !mountedRef.current) return
 
     const dragIndex = dataFiles.findIndex((f) => f.id === draggedChart)
     if (dragIndex === -1 || dragIndex === dropIndex) return
@@ -307,7 +352,7 @@ export function DashboardClient({ tenantId }: DashboardClientProps) {
 
       const response = await ApiClient.patch("/api/internal/data-files/reorder", { updates }, { tenantId })
 
-      if (response.ok) {
+      if (response.ok && mountedRef.current) {
         const updatedFiles = newDataFiles.map((file, index) => ({
           ...file,
           sort_order: index,
@@ -326,20 +371,23 @@ export function DashboardClient({ tenantId }: DashboardClientProps) {
         throw new Error("Failed to update chart order")
       }
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to update chart order. Please try again.",
-        variant: "destructive",
-      })
-      await refreshData(false)
+      if (mountedRef.current) {
+        toast({
+          title: "Error",
+          description: "Failed to update chart order. Please try again.",
+          variant: "destructive",
+        })
+        refreshData(false)
+      }
     } finally {
-      setIsReordering(false)
-      setDraggedChart(null)
+      if (mountedRef.current) {
+        setIsReordering(false)
+        setDraggedChart(null)
+      }
     }
   }
 
   const processChartData = (rawData: any, fieldOrder?: string[]) => {
-    // Added fieldOrder parameter
     try {
       let parsedData = rawData
 
@@ -354,11 +402,9 @@ export function DashboardClient({ tenantId }: DashboardClientProps) {
 
           if (columnNames.length >= 2) {
             return parsedData.map((item) => {
-              // Convert numeric values to numbers while preserving original column names
               const processedItem = { ...item }
               columnNames.forEach((col, index) => {
                 if (index === 1) {
-                  // Second column (value column)
                   processedItem[col] = Number(item[col]) || 0
                 }
               })
@@ -380,15 +426,8 @@ export function DashboardClient({ tenantId }: DashboardClientProps) {
   }
 
   const formatTime = (dateString: string) => {
-    // No longer needed as formatRelativeTime handles both date and time
     return ""
   }
-
-  useEffect(() => {
-    if (currentDashboard) {
-      refreshData(true)
-    }
-  }, [currentDashboard, refreshData])
 
   return (
     <div className="space-y-6">
@@ -455,8 +494,8 @@ export function DashboardClient({ tenantId }: DashboardClientProps) {
                 className="mt-4 transition-all duration-200"
                 disabled={isRefreshing}
               >
-                <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`} />
-                Refresh
+                <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""} sm:mr-2`} />
+                <span className="hidden sm:inline">Refresh</span>
               </Button>
             </div>
           ) : (
