@@ -63,8 +63,7 @@ export default function SignUpPage() {
         email,
         password,
         options: {
-          emailRedirectTo:
-            process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || `${window.location.origin}/auth/callback`,
+          emailRedirectTo: process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || `${window.location.origin}/protected`,
         },
       })
 
@@ -89,7 +88,13 @@ export default function SignUpPage() {
           // Don't fail the signup if tenant assignment fails
         }
 
-        router.push("/auth/sign-up-success")
+        if (data.session) {
+          // Email confirmation is disabled - user is immediately signed in
+          router.push(redirectTo)
+        } else {
+          // Email confirmation is enabled - user needs to verify email
+          router.push("/auth/sign-up-success")
+        }
       }
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "An error occurred during sign up")

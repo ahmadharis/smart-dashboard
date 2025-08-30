@@ -10,7 +10,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useState, useEffect } from "react"
-import { BarChart3, CheckCircle } from "lucide-react"
+import { BarChart3, CheckCircle, AlertCircle } from "lucide-react"
 import { Navigation } from "@/components/navigation"
 
 export default function LoginPage() {
@@ -24,6 +24,7 @@ export default function LoginPage() {
 
   const redirectTo = searchParams.get("redirectTo") || "/"
   const message = searchParams.get("message")
+  const errorParam = searchParams.get("error")
 
   useEffect(() => {
     const checkUser = async () => {
@@ -40,7 +41,23 @@ export default function LoginPage() {
     if (message === "signup-success") {
       setSuccess("Account created successfully! Please check your email to verify your account.")
     }
-  }, [router, redirectTo, message])
+
+    if (errorParam) {
+      switch (errorParam) {
+        case "verification-failed":
+          setError("Email verification failed. Please try signing up again or contact support.")
+          break
+        case "session-expired":
+          setError("Your session has expired. Please sign in again.")
+          break
+        case "loading-timeout":
+          setError("Authentication timed out. Please try signing in again.")
+          break
+        default:
+          setError("An authentication error occurred. Please try again.")
+      }
+    }
+  }, [router, redirectTo, message, errorParam])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -60,7 +77,17 @@ export default function LoginPage() {
 
       router.push(redirectTo)
     } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "An error occurred")
+      if (error instanceof Error) {
+        if (error.message.includes("Invalid login credentials")) {
+          setError("Invalid email or password. Please check your credentials and try again.")
+        } else if (error.message.includes("Email not confirmed")) {
+          setError("Please check your email and click the verification link before signing in.")
+        } else {
+          setError(error.message)
+        }
+      } else {
+        setError("An error occurred during sign in")
+      }
     } finally {
       setIsLoading(false)
     }
@@ -118,9 +145,10 @@ export default function LoginPage() {
                   />
                 </div>
                 {error && (
-                  <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3">
-                    <p className="text-sm text-destructive">{error}</p>
-                  </div>
+                  <Alert className="border-red-200 bg-red-50">
+                    <AlertCircle className="h-4 w-4 text-red-600" />
+                    <AlertDescription className="text-red-800">{error}</AlertDescription>
+                  </Alert>
                 )}
                 <Button type="submit" className="w-full" disabled={isLoading}>
                   {isLoading ? "Signing in..." : "Sign In"}

@@ -11,19 +11,45 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { User, LogOut, Settings } from "lucide-react"
+import { User, LogOut, Settings, AlertCircle } from "lucide-react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { useAuth } from "@/components/auth-provider"
+import { useEffect, useState } from "react"
 
 export function UserNav() {
-  const { user, isLoading } = useAuth()
+  const { user, isLoading, clearSession } = useAuth()
   const router = useRouter()
   const supabase = createClient()
+  const [hasLoadingTimeout, setHasLoadingTimeout] = useState(false)
+
+  useEffect(() => {
+    if (isLoading) {
+      const timeout = setTimeout(() => {
+        setHasLoadingTimeout(true)
+        // If loading for more than 8 seconds, clear session and redirect
+        clearSession()
+        router.push("/auth/login?error=loading-timeout")
+      }, 8000)
+
+      return () => clearTimeout(timeout)
+    } else {
+      setHasLoadingTimeout(false)
+    }
+  }, [isLoading, clearSession, router])
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
     router.push("/")
+  }
+
+  if (hasLoadingTimeout) {
+    return (
+      <Button variant="ghost" size="sm" onClick={() => router.push("/auth/login")}>
+        <AlertCircle className="h-4 w-4 mr-2" />
+        Sign In
+      </Button>
+    )
   }
 
   if (isLoading) {
