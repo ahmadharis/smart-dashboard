@@ -116,6 +116,7 @@ export function DashboardClient({ tenantId }: DashboardClientProps) {
       }
 
       try {
+        console.log("[v0] Dashboard - Making API call for dashboard:", currentDashboard.id)
         const response = await ApiClient.get(`/api/internal/data-files?dashboardId=${currentDashboard.id}`, {
           signal: abortControllerRef.current.signal,
           tenantId,
@@ -123,10 +124,12 @@ export function DashboardClient({ tenantId }: DashboardClientProps) {
 
         if (!response.ok) {
           const errorText = await response.text()
+          console.log("[v0] Dashboard - API error:", response.status, errorText)
           throw new Error(`HTTP ${response.status}: ${errorText}`)
         }
 
         const newData = await response.json()
+        console.log("[v0] Dashboard - API response:", newData)
         const files = Array.isArray(newData) ? newData : []
 
         const sortedFiles = files.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
@@ -136,13 +139,14 @@ export function DashboardClient({ tenantId }: DashboardClientProps) {
         if (mountedRef.current) {
           setDataFiles(sortedFiles)
           setRetryCount(0)
+          console.log("[v0] Dashboard - Data loaded successfully:", sortedFiles.length, "files")
         }
       } catch (error: any) {
         if (error.name === "AbortError") {
           return // Request was cancelled, don't update state
         }
 
-        console.error("Failed to refresh data:", error)
+        console.error("[v0] Dashboard - Failed to refresh data:", error)
 
         if (mountedRef.current) {
           setError(error.message || "Failed to load dashboard data")
@@ -150,6 +154,7 @@ export function DashboardClient({ tenantId }: DashboardClientProps) {
           setRetryCount((currentRetryCount) => {
             if (currentRetryCount < 3) {
               const delay = Math.pow(2, currentRetryCount) * 1000 // 1s, 2s, 4s
+              console.log("[v0] Dashboard - Retrying in", delay, "ms")
               setTimeout(() => {
                 if (mountedRef.current) {
                   refreshData(false)
@@ -170,10 +175,11 @@ export function DashboardClient({ tenantId }: DashboardClientProps) {
         if (mountedRef.current) {
           setIsRefreshing(false)
           setIsLoading(false)
+          console.log("[v0] Dashboard - Loading complete")
         }
       }
     },
-    [tenantId, toast],
+    [currentDashboard, tenantId, toast], // Added currentDashboard back to dependencies
   )
 
   useEffect(() => {
@@ -181,17 +187,7 @@ export function DashboardClient({ tenantId }: DashboardClientProps) {
       console.log("[v0] Dashboard - Loading data for dashboard:", currentDashboard.id)
       refreshData(true)
     }
-  }, [currentDashboard, tenantId])
-
-  useEffect(() => {
-    mountedRef.current = true
-    return () => {
-      mountedRef.current = false
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort()
-      }
-    }
-  }, [])
+  }, [currentDashboard, tenantId]) // Removed refreshData from dependencies and only depend on currentDashboard.id
 
   const updateChartType = useCallback(
     async (fileId: string, newChartType: string) => {

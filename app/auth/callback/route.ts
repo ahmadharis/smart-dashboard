@@ -6,27 +6,36 @@ export async function GET(request: NextRequest) {
   const code = searchParams.get("code")
   const next = searchParams.get("next") ?? "/protected"
 
+  console.log("[v0] Auth callback - Processing verification code")
+
   if (code) {
     const supabase = await createClient()
-    const { error } = await supabase.auth.exchangeCodeForSession(code)
 
-    if (!error) {
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code)
+
+    if (!error && data.session) {
+      console.log("[v0] Auth callback - Session created successfully")
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      console.log("[v0] Auth callback - User verified:", user?.email)
+
       const forwardedHost = request.headers.get("x-forwarded-host")
       const isLocalEnv = process.env.NODE_ENV === "development"
 
       if (isLocalEnv) {
-        // In development, redirect to the next URL
         return NextResponse.redirect(`${origin}${next}`)
       } else if (forwardedHost) {
-        // In production, use the forwarded host
         return NextResponse.redirect(`https://${forwardedHost}${next}`)
       } else {
-        // Fallback to origin
         return NextResponse.redirect(`${origin}${next}`)
       }
+    } else {
+      console.log("[v0] Auth callback - Session creation failed:", error?.message)
     }
   }
 
-  // If there's an error or no code, redirect to login with error
+  console.log("[v0] Auth callback - Redirecting to login with error")
   return NextResponse.redirect(`${origin}/auth/login?message=Could not authenticate user`)
 }
