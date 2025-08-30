@@ -5,12 +5,12 @@ import { cookies } from "next/headers"
 export async function POST(request: NextRequest) {
   try {
     const { userId, email } = await request.json()
+    console.log("[v0] Tenant assignment started for:", { userId, email })
 
     if (!userId || !email) {
       return NextResponse.json({ error: "Missing userId or email" }, { status: 400 })
     }
 
-    // Create Supabase client with service role key for admin operations
     const supabase = createServerClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
       cookies: {
         getAll() {
@@ -30,6 +30,7 @@ export async function POST(request: NextRequest) {
 
     // Extract domain from email
     const emailDomain = email.split("@")[1]?.toLowerCase()
+    console.log("[v0] Email domain extracted:", emailDomain)
 
     if (!emailDomain) {
       return NextResponse.json({ error: "Invalid email format" }, { status: 400 })
@@ -42,9 +43,11 @@ export async function POST(request: NextRequest) {
       .not("domain", "is", null)
 
     if (tenantsError) {
-      console.error("Error fetching tenants:", tenantsError)
+      console.error("[v0] Error fetching tenants:", tenantsError)
       return NextResponse.json({ error: "Failed to fetch tenants" }, { status: 500 })
     }
+
+    console.log("[v0] Found tenants:", tenants)
 
     const matchingTenants =
       tenants?.filter((tenant) => {
@@ -55,6 +58,8 @@ export async function POST(request: NextRequest) {
         return domains.includes(emailDomain)
       }) || []
 
+    console.log("[v0] Matching tenants:", matchingTenants)
+
     // Add user to all matching tenants
     if (matchingTenants.length > 0) {
       const userTenantInserts = matchingTenants.map((tenant) => ({
@@ -62,19 +67,23 @@ export async function POST(request: NextRequest) {
         tenant_id: tenant.tenant_id,
       }))
 
+      console.log("[v0] Inserting user_tenants:", userTenantInserts)
+
       const { error: insertError } = await supabase.from("user_tenants").insert(userTenantInserts)
 
       if (insertError) {
-        console.error("Error inserting user_tenants:", insertError)
+        console.error("[v0] Error inserting user_tenants:", insertError)
         return NextResponse.json({ error: "Failed to assign tenant access" }, { status: 500 })
       }
 
+      console.log("[v0] Successfully assigned user to tenants")
       return NextResponse.json({
         success: true,
         message: `User assigned to ${matchingTenants.length} tenant(s)`,
         assignedTenants: matchingTenants.map((t) => ({ id: t.tenant_id, name: t.name })),
       })
     } else {
+      console.log("[v0] No matching tenants found")
       return NextResponse.json({
         success: true,
         message: "No matching tenants found for email domain",
@@ -82,7 +91,7 @@ export async function POST(request: NextRequest) {
       })
     }
   } catch (error) {
-    console.error("Error in assign-tenant-on-signup:", error)
+    console.error("[v0] Error in assign-tenant-on-signup:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
