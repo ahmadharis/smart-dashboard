@@ -21,8 +21,7 @@ interface AuthState {
 const AuthContext = createContext<AuthState | undefined>(undefined)
 
 const SESSION_CHECK_INTERVAL = 5 * 60 * 1000 // 5 minutes
-const MAX_LOADING_TIME = 10 * 1000 // 10 seconds max loading
-const SESSION_VALIDATION_TIMEOUT = 5 * 1000 // 5 seconds for session validation
+const MAX_LOADING_TIME = 30 * 1000 // 30 seconds max loading for email verification
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
@@ -50,16 +49,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const validateSession = useCallback(async (): Promise<boolean> => {
     try {
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error("Session validation timeout")), SESSION_VALIDATION_TIMEOUT)
-      })
-
-      const sessionPromise = supabase.auth.getSession()
-
       const {
         data: { session },
         error,
-      } = await Promise.race([sessionPromise, timeoutPromise])
+      } = await supabase.auth.getSession()
 
       if (error || !session?.user) {
         return false
@@ -137,27 +130,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const initializeAuth = async () => {
       try {
-        // Set a maximum loading timeout
         loadingTimeout.current = setTimeout(() => {
           console.warn("Auth initialization timeout, clearing session")
           clearSession()
         }, MAX_LOADING_TIME)
 
-        const isValid = await validateSession()
+        const {
+          data: { session },
+        } = await supabase.auth.getSession()
 
-        if (isValid) {
-          const {
-            data: { session },
-          } = await supabase.auth.getSession()
-
-          if (session?.user) {
-            setUser(session.user)
-            const permissions = await fetchTenantPermissions(session.user)
-            setTenantAccess(permissions)
-            startSessionMonitoring()
-          } else {
-            await clearSession()
-          }
+        if (session?.user) {
+          setUser(session.user)
+          const permissions = await fetchTenantPermissions(session.user)
+          setTenantAccess(permissions)
+          startSessionMonitoring()
         } else {
           await clearSession()
         }
