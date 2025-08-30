@@ -68,7 +68,29 @@ export default function SignUpPage() {
         },
       })
 
-      if (signUpError) throw signUpError
+      if (signUpError) {
+        if (
+          signUpError.message.includes("User already registered") ||
+          signUpError.message.includes("already been registered")
+        ) {
+          setError("An account with this email already exists. Please sign in instead.")
+          setIsLoading(false)
+          return
+        }
+        throw signUpError
+      }
+
+      if (data.user && (!data.user.identities || data.user.identities.length === 0)) {
+        setError("An account with this email already exists. Please sign in instead.")
+        setIsLoading(false)
+        return
+      }
+
+      if (data.user && !data.session && data.user.email_confirmed_at) {
+        setError("An account with this email already exists. Please sign in instead.")
+        setIsLoading(false)
+        return
+      }
 
       if (data.user) {
         // Call our API to handle tenant assignment based on email domain
@@ -86,7 +108,12 @@ export default function SignUpPage() {
         if (!response.ok) {
           const errorData = await response.json()
           console.error("Tenant assignment error:", errorData)
-          // Don't fail the signup if tenant assignment fails
+          if (errorData.error === "Failed to assign tenant access") {
+            setError("An account with this email already exists. Please sign in instead.")
+            setIsLoading(false)
+            return
+          }
+          // Don't fail the signup if tenant assignment fails for other reasons
         }
 
         if (data.session) {
