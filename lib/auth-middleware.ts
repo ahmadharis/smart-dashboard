@@ -72,17 +72,28 @@ export async function validateAuthAndTenant(request: NextRequest, requireTenant 
   // If tenant validation is required
   if (requireTenant) {
     const url = new URL(request.url)
-    const tenantId =
-      request.headers.get("X-Tenant-Id") || url.searchParams.get("tenant_id") || url.pathname.split("/")[1] // For [tenantId] routes
+
+    let tenantId: string | null = null
+
+    // First try headers and query parameters
+    tenantId =
+      request.headers.get("X-Tenant-Id") || url.searchParams.get("tenantId") || url.searchParams.get("tenant_id")
+
+    // If not found and this is a page route (not API route), extract from path
+    if (!tenantId && !url.pathname.startsWith("/api/")) {
+      tenantId = url.pathname.split("/")[1] // For [tenantId] routes like /550e8400-e29b-41d4-a716-446655440000/dashboard
+    }
 
     console.log("[v0] Extracted tenant ID:", tenantId)
     console.log("[v0] URL pathname:", url.pathname)
     console.log("[v0] URL pathname split:", url.pathname.split("/"))
+    console.log("[v0] Query params:", Object.fromEntries(url.searchParams))
 
     if (!tenantId) {
       return {
         isValid: false,
-        error: "Tenant ID is required. Provide X-Tenant-Id header or tenant_id parameter.",
+        error:
+          "Tenant ID is required. Provide X-Tenant-Id header, tenantId query parameter, or access via tenant route.",
       }
     }
 
