@@ -75,6 +75,10 @@ export async function validateAuthAndTenant(request: NextRequest, requireTenant 
     const tenantId =
       request.headers.get("X-Tenant-Id") || url.searchParams.get("tenant_id") || url.pathname.split("/")[1] // For [tenantId] routes
 
+    console.log("[v0] Extracted tenant ID:", tenantId)
+    console.log("[v0] URL pathname:", url.pathname)
+    console.log("[v0] URL pathname split:", url.pathname.split("/"))
+
     if (!tenantId) {
       return {
         isValid: false,
@@ -82,9 +86,9 @@ export async function validateAuthAndTenant(request: NextRequest, requireTenant 
       }
     }
 
-    // Validate UUID format
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
     if (!uuidRegex.test(tenantId)) {
+      console.log("[v0] Tenant ID validation failed for:", tenantId)
       return {
         isValid: false,
         error: "Invalid tenant ID format",
