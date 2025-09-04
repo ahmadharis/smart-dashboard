@@ -45,18 +45,21 @@ export class ApiClient {
     let finalBody = body
 
     if (tenantId) {
-      if (method === "GET" || method === "DELETE") {
-        const separator = url.includes("?") ? "&" : "?"
-        finalUrl = `${url}${separator}tenantId=${encodeURIComponent(tenantId)}`
-      } else if (body) {
-        if (body instanceof FormData) {
-          body.append("tenantId", tenantId)
-          finalBody = body
-        } else if (typeof body === "object") {
-          finalBody = { ...body, tenantId }
+      const separator = url.includes("?") ? "&" : "?"
+      finalUrl = `${url}${separator}tenantId=${encodeURIComponent(tenantId)}`
+
+      // Also add to body for non-GET/DELETE methods for backward compatibility
+      if (method !== "GET" && method !== "DELETE") {
+        if (body) {
+          if (body instanceof FormData) {
+            body.append("tenantId", tenantId)
+            finalBody = body
+          } else if (typeof body === "object") {
+            finalBody = { ...body, tenantId }
+          }
+        } else {
+          finalBody = { tenantId }
         }
-      } else {
-        finalBody = { tenantId }
       }
     }
 
