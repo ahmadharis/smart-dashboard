@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { validateAuthAndTenant } from "@/lib/auth-middleware"
 import { createClient } from "@supabase/supabase-js"
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -7,11 +8,17 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
 export async function PATCH(request: NextRequest, { params }: { params: { key: string } }) {
   try {
-    const body = await request.json()
-    const { tenantId, ...settingData } = body
+    const authResult = await validateAuthAndTenant(request, true)
+    if (!authResult.isValid || !authResult.tenantId) {
+      return NextResponse.json({ error: authResult.error || "Authentication required" }, { status: 401 })
+    }
 
-    if (!tenantId) {
-      return NextResponse.json({ error: "Tenant ID is required" }, { status: 400 })
+    const body = await request.json()
+    const { tenantId: bodyTenantId, ...settingData } = body
+
+    const tenantId = authResult.tenantId
+    if (bodyTenantId && bodyTenantId !== tenantId) {
+      return NextResponse.json({ error: "Tenant ID mismatch" }, { status: 403 })
     }
 
     const { data, error } = await supabase
@@ -40,12 +47,12 @@ export async function PATCH(request: NextRequest, { params }: { params: { key: s
 
 export async function DELETE(request: NextRequest, { params }: { params: { key: string } }) {
   try {
-    const { searchParams } = new URL(request.url)
-    const tenantId = searchParams.get("tenantId")
-
-    if (!tenantId) {
-      return NextResponse.json({ error: "Tenant ID is required" }, { status: 400 })
+    const authResult = await validateAuthAndTenant(request, true)
+    if (!authResult.isValid || !authResult.tenantId) {
+      return NextResponse.json({ error: authResult.error || "Authentication required" }, { status: 401 })
     }
+
+    const tenantId = authResult.tenantId
 
     const { error } = await supabase.from("settings").delete().eq("key", params.key).eq("tenant_id", tenantId)
 

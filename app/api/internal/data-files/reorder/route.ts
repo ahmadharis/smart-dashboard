@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { validateAuthAndTenant } from "@/lib/auth-middleware"
 import { createClient } from "@supabase/supabase-js"
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -7,11 +8,17 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
 export async function PATCH(request: NextRequest) {
   try {
-    const body = await request.json()
-    const { tenantId, updates } = body
+    const authResult = await validateAuthAndTenant(request, true)
+    if (!authResult.isValid || !authResult.tenantId) {
+      return NextResponse.json({ error: authResult.error || "Authentication required" }, { status: 401 })
+    }
 
-    if (!tenantId) {
-      return NextResponse.json({ error: "Tenant ID is required" }, { status: 400 })
+    const body = await request.json()
+    const { tenantId: bodyTenantId, updates } = body
+
+    const tenantId = authResult.tenantId
+    if (bodyTenantId && bodyTenantId !== tenantId) {
+      return NextResponse.json({ error: "Tenant ID mismatch" }, { status: 403 })
     }
 
     if (!Array.isArray(updates) || updates.length === 0) {

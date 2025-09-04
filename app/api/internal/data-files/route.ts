@@ -1,14 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { validateAuthAndTenant } from "@/lib/auth-middleware"
 import { createClient } from "@supabase/supabase-js"
 import { parseXMLToJSON } from "@/lib/xml-parser"
 import { saveDataFile } from "@/lib/data-utils"
-import {
-  validateTenantId,
-  validateDashboardId,
-  sanitizeInput,
-  validateDataType,
-  createSecureErrorResponse,
-} from "@/lib/validation"
+import { validateDashboardId, sanitizeInput, validateDataType, createSecureErrorResponse } from "@/lib/validation"
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -16,13 +11,14 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url)
-    const tenantId = searchParams.get("tenantId")
-    const dashboardId = searchParams.get("dashboardId")
-
-    if (!tenantId || !validateTenantId(tenantId)) {
-      return createSecureErrorResponse("Invalid tenant ID", 400)
+    const authResult = await validateAuthAndTenant(request, true)
+    if (!authResult.isValid || !authResult.tenantId) {
+      return NextResponse.json({ error: authResult.error || "Authentication required" }, { status: 401 })
     }
+
+    const { searchParams } = new URL(request.url)
+    const tenantId = authResult.tenantId
+    const dashboardId = searchParams.get("dashboardId")
 
     if (dashboardId && !validateDashboardId(dashboardId)) {
       return createSecureErrorResponse("Invalid dashboard ID", 400)
@@ -64,11 +60,17 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const formData = await request.formData()
-    const tenantId = (formData.get("tenantId") as string) || (formData.get("tenant_id") as string)
+    const authResult = await validateAuthAndTenant(request, true)
+    if (!authResult.isValid || !authResult.tenantId) {
+      return NextResponse.json({ error: authResult.error || "Authentication required" }, { status: 401 })
+    }
 
-    if (!tenantId || !validateTenantId(tenantId)) {
-      return createSecureErrorResponse("Invalid tenant ID", 400)
+    const formData = await request.formData()
+    const tenantId = authResult.tenantId
+    const bodyTenantId = (formData.get("tenantId") as string) || (formData.get("tenant_id") as string)
+
+    if (bodyTenantId && bodyTenantId !== tenantId) {
+      return createSecureErrorResponse("Tenant ID mismatch", 403)
     }
 
     const xmlContent = formData.get("xml") as string
