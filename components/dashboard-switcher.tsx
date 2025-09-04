@@ -78,8 +78,9 @@ export function DashboardSwitcher({ tenantId, onDashboardChange, currentDashboar
           }
         }
       } else {
-        const errorText = await response.text()
-        throw new Error(`Failed to load dashboards: ${errorText}`)
+        const errorData = await response.json()
+        const errorMessage = errorData.error || errorData.message || `HTTP ${response.status}: ${response.statusText}`
+        throw new Error(`Failed to load dashboards: ${errorMessage}`)
       }
     } catch (error) {
       console.error("Failed to fetch dashboards:", error)
