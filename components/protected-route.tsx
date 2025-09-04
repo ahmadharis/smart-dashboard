@@ -41,9 +41,11 @@ export function ProtectedRoute({ children, tenantId }: ProtectedRouteProps) {
     return null // Don't render anything while redirecting
   }
 
-  const hasAccess = checkTenantAccess(tenantId)
-  if (!hasAccess) {
-    return <AccessDenied deniedTenantId={tenantId} />
+  if (tenantId !== "tenant-selector") {
+    const hasAccess = checkTenantAccess(tenantId)
+    if (!hasAccess) {
+      return <AccessDenied deniedTenantId={tenantId} />
+    }
   }
 
   return <>{children}</>

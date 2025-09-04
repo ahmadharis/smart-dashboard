@@ -25,7 +25,7 @@ export function AccessDenied({ deniedTenantId }: AccessDeniedProps) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string>("")
   const router = useRouter()
-  const { user, tenantPermissions } = useAuth()
+  const { user, checkTenantAccess } = useAuth()
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -41,10 +41,7 @@ export function AccessDenied({ deniedTenantId }: AccessDeniedProps) {
       const response = await fetch("/api/public/tenants")
       if (response.ok) {
         const data = await response.json()
-        // Filter tenants to only show ones the user has access to
-        const accessibleTenants = data.filter(
-          (tenant: Tenant) => tenantPermissions && tenantPermissions[tenant.tenant_id],
-        )
+        const accessibleTenants = data.filter((tenant: Tenant) => checkTenantAccess(tenant.tenant_id))
         setTenants(accessibleTenants)
       } else {
         const errorData = await response.json()
@@ -143,7 +140,6 @@ export function AccessDenied({ deniedTenantId }: AccessDeniedProps) {
                 </div>
               )}
 
-              {/* Added Go Home button before Sign Out button */}
               <Button onClick={handleGoHome} variant="secondary" className="w-full">
                 <Home className="h-4 w-4 mr-2" />
                 Go Home

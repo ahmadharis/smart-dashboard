@@ -1,5 +1,6 @@
 import { Suspense } from "react"
 import { DashboardClient } from "@/components/dashboard-client"
+import { ProtectedRoute } from "@/components/protected-route"
 
 interface DashboardPageProps {
   params: {
@@ -30,12 +31,14 @@ function DashboardSkeleton() {
 
 export default function DashboardPage({ params }: DashboardPageProps) {
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 pt-4">
-        <Suspense fallback={<DashboardSkeleton />}>
-          <DashboardClient tenantId={params.tenantId} />
-        </Suspense>
+    <ProtectedRoute tenantId={params.tenantId}>
+      <div className="min-h-screen bg-background">
+        <div className="container mx-auto px-4 pt-4">
+          <Suspense fallback={<DashboardSkeleton />}>
+            <DashboardClient tenantId={params.tenantId} />
+          </Suspense>
+        </div>
       </div>
-    </div>
+    </ProtectedRoute>
   )
 }

@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Building2, ArrowRight, AlertCircle } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { useAuth } from "./auth-provider"
 
 interface Tenant {
   tenant_id: string
@@ -21,6 +22,7 @@ export function TenantSelector() {
   const [isAccessDenied, setIsAccessDenied] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { user } = useAuth()
 
   const errorParam = searchParams.get("error")
   const tenantParam = searchParams.get("tenant")
@@ -33,8 +35,17 @@ export function TenantSelector() {
       )
     }
 
-    fetchTenants()
-  }, [errorParam, tenantParam])
+    if (user) {
+      fetchTenants()
+    }
+  }, [errorParam, tenantParam, user])
+
+  useEffect(() => {
+    if (tenants.length === 1 && errorParam !== "access_denied") {
+      router.push(`/${tenants[0].tenant_id}`)
+      return
+    }
+  }, [tenants, router, errorParam])
 
   const fetchTenants = async () => {
     try {
@@ -47,29 +58,27 @@ export function TenantSelector() {
       if (response.ok) {
         if (isJson) {
           const data = await response.json()
-          setTenants(data)
-
-          if (data.length === 1 && errorParam !== "access_denied") {
-            router.push(`/${data[0].tenant_id}`)
-            return
+          if (Array.isArray(data)) {
+            setTenants(data)
+          } else {
+            console.error("Expected array but got:", typeof data, data)
+            setTenants([])
+            setError("Invalid data format received from server")
           }
         } else {
-          // Handle non-JSON success response
           const text = await response.text()
           console.error("Unexpected non-JSON response:", text)
           setError("Server returned unexpected response format")
         }
       } else {
         if (response.status === 429) {
-          // Handle rate limiting specifically
-          console.warn("[v0] TenantSelector - Rate limited, using fallback tenant")
-          setTenants([{ tenant_id: "550e8400-e29b-41d4-a716-446655440000", name: "Default Tenant" }])
-          setError("")
+          console.warn("[v0] TenantSelector - Rate limited")
+          setTenants([])
+          setError("Database is temporarily busy. Please try again in a moment.")
         } else if (isJson) {
           const errorData = await response.json()
           setError(errorData.error || "Failed to fetch tenants")
         } else {
-          // Handle plain text error responses
           const errorText = await response.text()
           console.error("Server error:", errorText)
           setError("Server error occurred. Please try again.")
@@ -77,8 +86,8 @@ export function TenantSelector() {
       }
     } catch (error) {
       console.error("Error fetching tenants:", error)
-      setTenants([{ tenant_id: "550e8400-e29b-41d4-a716-446655440000", name: "Default Tenant" }])
-      setError("")
+      setTenants([])
+      setError("Failed to connect to server. Please try again.")
     } finally {
       setLoading(false)
     }
@@ -91,7 +100,7 @@ export function TenantSelector() {
     }
   }
 
-  if (loading) {
+  if (!user || loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -125,23 +134,36 @@ export function TenantSelector() {
                 </Alert>
               )}
 
-              <Select value={selectedTenant} onValueChange={setSelectedTenant}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose a tenant..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {tenants.map((tenant) => (
-                    <SelectItem key={tenant.tenant_id} value={tenant.tenant_id}>
-                      {tenant.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {tenants.length === 0 && !error && (
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    No tenants available. Please contact your administrator to get access to a tenant.
+                  </AlertDescription>
+                </Alert>
+              )}
 
-              <Button onClick={handleContinue} disabled={!selectedTenant} className="w-full">
-                Continue to Home Page
-                <ArrowRight className="h-4 w-4 ml-2" />
-              </Button>
+              {tenants.length > 0 && (
+                <>
+                  <Select value={selectedTenant} onValueChange={setSelectedTenant}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose a tenant..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {tenants.map((tenant) => (
+                        <SelectItem key={tenant.tenant_id} value={tenant.tenant_id}>
+                          {tenant.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Button onClick={handleContinue} disabled={!selectedTenant} className="w-full">
+                    Continue to Home Page
+                    <ArrowRight className="h-4 w-4 ml-2" />
+                  </Button>
+                </>
+              )}
             </CardContent>
           </Card>
         </div>
