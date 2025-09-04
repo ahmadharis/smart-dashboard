@@ -57,9 +57,6 @@ SUPABASE_ANON_KEY=your_supabase_anon_key
 
 # Authentication
 NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL=http://localhost:3000
-
-# API Security
-API_SECRET_KEY=your_secure_random_string_for_api_validation
 \`\`\`
 
 ### 3. Database Setup
@@ -75,12 +72,7 @@ scripts/004_create_data_files_table.sql
 scripts/005_create_settings_table.sql
 scripts/006_create_user_profiles_table.sql
 scripts/007_create_user_tenants_table.sql
-\`\`\`
-
-### 4. Development
-
-\`\`\`bash
-npm run dev
+scripts/009_add_api_key_to_tenants.sql
 \`\`\`
 
 Visit `http://localhost:3000` to access the application.
@@ -91,7 +83,7 @@ Visit `http://localhost:3000` to access the application.
 
 The platform uses the following core tables:
 
-- **tenants** - Tenant organizations with domain-based assignment
+- **tenants** - Tenant organizations with domain-based assignment and unique API keys
 - **users** - User authentication and profile data
 - **user_tenants** - Many-to-many relationship for tenant access control
 - **dashboards** - Dashboard configurations per tenant
@@ -173,11 +165,13 @@ Fetch tenants accessible to authenticated user.
 #### POST /api/upload-xml
 Upload XML files for processing and visualization.
 
-**Authentication Required:** Yes - via API key authentication
+**Authentication Required:** Yes - via tenant-specific API key authentication
 
 **Authentication Methods:**
-- **Method 1:** `x-api-key: <your-api-key>` header
-- **Method 2:** `Authorization: Bearer <your-api-key>` header
+- **Method 1:** `x-api-key: <tenant-api-key>` header
+- **Method 2:** `Authorization: Bearer <tenant-api-key>` header
+
+**Important:** Each tenant has its own unique API key. The API key automatically determines which tenant the data belongs to, providing secure tenant isolation.
 
 **Dashboard Handling:**
 The API supports two modes for dashboard management:
@@ -192,8 +186,7 @@ The API supports two modes for dashboard management:
 
 **Required Headers:**
 \`\`\`bash
-x-api-key: <your-api-key>                    # Authentication (required)
-X-Tenant-Id: <tenant-id>                     # Tenant isolation (required)
+x-api-key: <tenant-api-key>                  # Tenant-specific authentication (required)
 X-Data-Type: <data-category>                 # Data categorization (required)
 X-Dashboard-Id: <dashboard-id>               # For existing dashboard (either/or)
 X-Dashboard-Title: <dashboard-title>         # For new dashboard (either/or)
@@ -204,8 +197,7 @@ X-Dashboard-Title: <dashboard-title>         # For new dashboard (either/or)
 # Using existing dashboard
 curl -X POST http://localhost:3000/api/upload-xml \
   -H "Content-Type: application/xml" \
-  -H "x-api-key: your-secure-api-key" \
-  -H "X-Tenant-Id: your-tenant-id" \
+  -H "x-api-key: tenant_550e8400-e29b-41d4-a716-446655440000_abc123def456" \
   -H "X-Data-Type: Sales" \
   -H "X-Dashboard-Id: existing-dashboard-id" \
   -d '<resultset columns="2" rows="2">
@@ -222,8 +214,7 @@ curl -X POST http://localhost:3000/api/upload-xml \
 # Creating new dashboard
 curl -X POST http://localhost:3000/api/upload-xml \
   -H "Content-Type: application/xml" \
-  -H "x-api-key: your-secure-api-key" \
-  -H "X-Tenant-Id: your-tenant-id" \
+  -H "x-api-key: tenant_550e8400-e29b-41d4-a716-446655440000_abc123def456" \
   -H "X-Data-Type: Sales" \
   -H "X-Dashboard-Title: Q4 Sales Analytics" \
   -d '<resultset>...</resultset>'
@@ -241,9 +232,10 @@ curl -X POST http://localhost:3000/api/upload-xml \
 \`\`\`
 
 **Key Features:**
+- **Tenant-Specific API Keys**: Each tenant has a unique API key for secure data isolation
+- **Automatic Tenant Detection**: API key automatically determines the target tenant
 - **Dataset Replacement**: If a dataset with the same data type already exists in the dashboard, it will be replaced with the new data
 - **Automatic Chart Generation**: Charts are automatically created based on the XML data structure
-- **Tenant Isolation**: All data is isolated by tenant for security
 - **Validation**: XML data is validated and sanitized before processing
 
 ## Development Workflow
@@ -290,8 +282,9 @@ npm run type-check
 Ensure all environment variables are configured in your deployment platform:
 
 - Supabase credentials
-- API security keys
 - Redirect URLs for production domain
+
+**Note:** The API_SECRET_KEY environment variable has been removed. Authentication now uses tenant-specific API keys stored in the database.
 
 ## Troubleshooting
 
@@ -309,7 +302,8 @@ Ensure all environment variables are configured in your deployment platform:
 
 **File Upload Issues:**
 - Validate XML file format and size limits
-- Ensure tenant and dashboard IDs are valid
+- Ensure tenant API key is valid and belongs to the correct tenant
+- Check dashboard IDs are valid for the authenticated tenant
 - Check CORS configuration for cross-origin requests
 
 ### Debug Mode

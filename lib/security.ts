@@ -7,19 +7,42 @@ export interface SecurityValidationResult {
   tenantId?: string
 }
 
-// Validate API key from environment variable
-export function validateApiKey(request: NextRequest): boolean {
-  const apiKey = process.env.API_SECRET_KEY
-  if (!apiKey) {
-    console.error("API_SECRET_KEY environment variable not set")
-    return false
-  }
-
+export async function validateApiKey(
+  request: NextRequest,
+): Promise<{ isValid: boolean; tenantId?: string; error?: string }> {
   const xApiKey = request.headers.get("x-api-key")
   const authHeader = request.headers.get("authorization")
   const providedKey = xApiKey || authHeader?.replace("Bearer ", "")
 
-  return providedKey === apiKey
+  if (!providedKey) {
+    return {
+      isValid: false,
+      error: "API key is required. Provide x-api-key header or Authorization: Bearer token.",
+    }
+  }
+
+  try {
+    const supabase = createClient()
+    const { data, error } = await supabase.from("tenants").select("tenant_id").eq("api_key", providedKey).single()
+
+    if (error || !data) {
+      return {
+        isValid: false,
+        error: "Invalid API key",
+      }
+    }
+
+    return {
+      isValid: true,
+      tenantId: data.tenant_id,
+    }
+  } catch (error) {
+    console.error("API key validation error:", error)
+    return {
+      isValid: false,
+      error: "API key validation failed",
+    }
+  }
 }
 
 // Validate tenant exists and is accessible
@@ -39,28 +62,37 @@ export async function validateTenant(tenantId: string): Promise<boolean> {
   }
 }
 
-// Comprehensive security validation for API endpoints
-const DEFAULT_TENANT_ID = "550e8400-e29b-41d4-a716-446655440000" // KC tenant
-
 export async function validateSecurity(request: NextRequest, requireTenant = true): Promise<SecurityValidationResult> {
-  // Validate API key
-  if (!validateApiKey(request)) {
+  // Validate API key and get associated tenant
+  const apiKeyResult = await validateApiKey(request)
+  if (!apiKeyResult.isValid) {
     return {
       isValid: false,
-      error: "Invalid or missing API key",
+      error: apiKeyResult.error || "Invalid API key",
     }
   }
 
   // Handle tenant validation
   if (requireTenant) {
     const url = new URL(request.url)
-    const tenantId =
+    const requestedTenantId =
       request.headers.get("X-Tenant-Id") || url.searchParams.get("tenant_id") || url.pathname.split("/")[1] // For [tenantId] routes
+
+    // If no tenant ID is provided in request, use the one from API key
+    const tenantId = requestedTenantId || apiKeyResult.tenantId
 
     if (!tenantId) {
       return {
         isValid: false,
         error: "Tenant ID is required. Provide X-Tenant-Id header or tenant_id parameter.",
+      }
+    }
+
+    // Ensure the requested tenant matches the API key's tenant
+    if (requestedTenantId && requestedTenantId !== apiKeyResult.tenantId) {
+      return {
+        isValid: false,
+        error: "API key does not have access to the requested tenant",
       }
     }
 
@@ -78,7 +110,10 @@ export async function validateSecurity(request: NextRequest, requireTenant = tru
     }
   }
 
-  return { isValid: true }
+  return {
+    isValid: true,
+    tenantId: apiKeyResult.tenantId,
+  }
 }
 
 // Input validation utilities
