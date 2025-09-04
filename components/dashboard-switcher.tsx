@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -9,6 +11,7 @@ import { useToast } from "@/hooks/use-toast"
 import { Badge } from "@/components/ui/badge"
 import Link from "next/link"
 import { ApiClient } from "@/lib/api-client"
+import { ShareDialog } from "@/components/share-dialog"
 
 interface Dashboard {
   id: string
@@ -28,6 +31,8 @@ export function DashboardSwitcher({ tenantId, onDashboardChange, currentDashboar
   const [isLoading, setIsLoading] = useState(true)
   const [isSwitching, setIsSwitching] = useState(false)
   const [dashboardTitle, setDashboardTitle] = useState<string>("Select Dashboard")
+  const [isShareDialogOpen, setIsShareDialogOpen] = useState(false)
+  const [tenantApiKey, setTenantApiKey] = useState<string>("")
   const { toast } = useToast()
 
   const router = useRouter()
@@ -36,6 +41,7 @@ export function DashboardSwitcher({ tenantId, onDashboardChange, currentDashboar
   useEffect(() => {
     fetchDashboards()
     fetchDashboardTitle()
+    fetchTenantApiKey()
   }, [])
 
   const fetchDashboardTitle = async () => {
@@ -94,30 +100,42 @@ export function DashboardSwitcher({ tenantId, onDashboardChange, currentDashboar
     }
   }
 
+  const fetchTenantApiKey = async () => {
+    try {
+      const response = await fetch(`/api/public/tenants`, {
+        headers: {
+          Authorization: `Bearer ${await getAuthToken()}`, // You'll need to implement getAuthToken
+        },
+      })
+      if (response.ok) {
+        const tenants = await response.json()
+        const currentTenant = tenants.find((t: any) => t.tenant_id === tenantId)
+        if (currentTenant?.api_key) {
+          setTenantApiKey(currentTenant.api_key)
+        }
+      }
+    } catch (error) {
+      console.error("Failed to fetch tenant API key:", error)
+    }
+  }
+
+  const getAuthToken = async () => {
+    // Implementation depends on your auth system (Clerk, Supabase, etc.)
+    return "your-auth-token"
+  }
+
   const updateURL = (dashboardId: string) => {
     const url = new URL(window.location.href)
     url.searchParams.set("id", dashboardId)
     router.replace(url.pathname + url.search, { scroll: false })
   }
 
-  const shareDashboard = async () => {
+  const shareDashboard = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+
     if (!currentDashboard) return
-
-    const url = `${window.location.origin}/${tenantId}/dashboard?id=${currentDashboard.id}`
-
-    try {
-      await navigator.clipboard.writeText(url)
-      toast({
-        title: "Link copied!",
-        description: "Dashboard URL has been copied to your clipboard.",
-      })
-    } catch (error) {
-      toast({
-        title: "Copy failed",
-        description: `Please copy this URL manually: ${url}`,
-        variant: "destructive",
-      })
-    }
+    setIsShareDialogOpen(true)
   }
 
   const handleDashboardChange = (dashboardId: string) => {
@@ -194,6 +212,7 @@ export function DashboardSwitcher({ tenantId, onDashboardChange, currentDashboar
                     </Button>
                   </Link>
                   <Button
+                    type="button"
                     variant="outline"
                     size="sm"
                     onClick={shareDashboard}
@@ -252,6 +271,7 @@ export function DashboardSwitcher({ tenantId, onDashboardChange, currentDashboar
                     </Button>
                   </Link>
                   <Button
+                    type="button"
                     variant="outline"
                     size="sm"
                     onClick={shareDashboard}
@@ -266,6 +286,16 @@ export function DashboardSwitcher({ tenantId, onDashboardChange, currentDashboar
           </div>
         </div>
       </div>
+      {currentDashboard && (
+        <ShareDialog
+          isOpen={isShareDialogOpen}
+          onClose={() => setIsShareDialogOpen(false)}
+          tenantId={tenantId}
+          dashboardId={currentDashboard.id}
+          dashboardTitle={currentDashboard.title}
+          tenantApiKey={tenantApiKey}
+        />
+      )}
     </div>
   )
 }

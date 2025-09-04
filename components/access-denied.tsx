@@ -39,13 +39,33 @@ export function AccessDenied({ deniedTenantId }: AccessDeniedProps) {
   const fetchTenants = async () => {
     try {
       const response = await fetch("/api/public/tenants")
-      if (response.ok) {
+
+      if (!response.ok) {
+        // Handle HTTP error responses
+        const contentType = response.headers.get("content-type")
+        if (contentType && contentType.includes("application/json")) {
+          const errorData = await response.json()
+          setError(errorData.error || `Server error (${response.status})`)
+        } else {
+          // Handle non-JSON error responses (like rate limits)
+          const errorText = await response.text()
+          if (errorText.includes("Too Many Requests") || errorText.includes("rate limit")) {
+            setError("Database is temporarily busy. Please try again in a moment.")
+          } else {
+            setError(`Server error (${response.status}). Please try again.`)
+          }
+        }
+        return
+      }
+
+      // Handle successful responses
+      const contentType = response.headers.get("content-type")
+      if (contentType && contentType.includes("application/json")) {
         const data = await response.json()
         const accessibleTenants = data.filter((tenant: Tenant) => checkTenantAccess(tenant.tenant_id))
         setTenants(accessibleTenants)
       } else {
-        const errorData = await response.json()
-        setError(errorData.error || "Failed to fetch tenants")
+        setError("Server returned unexpected response format")
       }
     } catch (error) {
       console.error("Error fetching tenants:", error)
