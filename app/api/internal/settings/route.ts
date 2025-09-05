@@ -1,10 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { validateAuthAndTenant } from "@/lib/auth-middleware"
-import { createClient } from "@supabase/supabase-js"
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-const supabase = createClient(supabaseUrl, supabaseServiceKey)
+import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
+import { cookies } from "next/headers"
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,6 +11,7 @@ export async function GET(request: NextRequest) {
     }
 
     const tenantId = authResult.tenantId
+    const supabase = createServerComponentClient({ cookies })
 
     const { data: settings, error } = await supabase
       .from("settings")
@@ -47,6 +45,8 @@ export async function POST(request: NextRequest) {
     if (bodyTenantId && bodyTenantId !== tenantId) {
       return NextResponse.json({ error: "Tenant ID mismatch" }, { status: 403 })
     }
+
+    const supabase = createServerComponentClient({ cookies })
 
     const { data, error } = await supabase
       .from("settings")
