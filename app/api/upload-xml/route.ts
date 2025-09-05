@@ -6,22 +6,18 @@ import { createClient } from "@supabase/supabase-js"
 
 async function validateUploadXmlApiKey(
   request: NextRequest,
-): Promise<{ isValid: boolean; tenantId?: string; error?: string; debugInfo?: any }> {
+): Promise<{ isValid: boolean; tenantId?: string; error?: string }> {
   const xApiKey = request.headers.get("x-api-key")
   const authHeader = request.headers.get("authorization")
   const providedKey = xApiKey || authHeader?.replace("Bearer ", "")
-
-  const debugInfo = {
-    hasXApiKey: !!xApiKey,
-    hasAuthHeader: !!authHeader,
-    providedKeyLength: providedKey?.length || 0,
-    providedKeyFirst8: providedKey?.substring(0, 8) || "none",
-    supabaseUrl: !!process.env.SUPABASE_URL,
-    supabaseServiceKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
-  }
+  const requestedTenantId = request.headers.get("X-Tenant-Id")
 
   if (!providedKey) {
-    return { isValid: false, error: "API key is required", debugInfo }
+    return { isValid: false, error: "API key is required" }
+  }
+
+  if (!requestedTenantId) {
+    return { isValid: false, error: "X-Tenant-Id header is required" }
   }
 
   try {
@@ -30,25 +26,17 @@ async function validateUploadXmlApiKey(
     const { data, error } = await supabase
       .from("tenants")
       .select("tenant_id, api_key")
+      .eq("tenant_id", requestedTenantId)
       .eq("api_key", providedKey.trim())
-      .single()
-
-    debugInfo.dbError = error?.message || null
-    debugInfo.dbDataFound = !!data
-    debugInfo.queryUsedKey = providedKey.trim()
+      .maybeSingle()
 
     if (error || !data) {
-      const { data: allTenants } = await supabase.from("tenants").select("api_key").limit(10)
-
-      debugInfo.allApiKeysInDb = allTenants?.map((t) => t.api_key?.substring(0, 8)) || []
-
-      return { isValid: false, error: "Invalid API key", debugInfo }
+      return { isValid: false, error: "Invalid API key" }
     }
 
-    return { isValid: true, tenantId: data.tenant_id, debugInfo }
+    return { isValid: true, tenantId: data.tenant_id }
   } catch (error) {
-    debugInfo.catchError = error instanceof Error ? error.message : "Unknown error"
-    return { isValid: false, error: "API key validation failed", debugInfo }
+    return { isValid: false, error: "API key validation failed" }
   }
 }
 
@@ -63,7 +51,6 @@ export async function POST(request: NextRequest) {
     return createSecureResponse(
       {
         error: validation.error,
-        debug: validation.debugInfo,
       },
       401,
     )
