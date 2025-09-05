@@ -1,0 +1,47 @@
+# Smart Dashboard - Development Docker Compose
+# Optimized for development with hot reloading and fast startup
+
+version: '3.8'
+
+services:
+  smart-dashboard-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    container_name: smart-dashboard-dev
+    ports:
+      - "3000:3000"
+    volumes:
+      # Mount source code for hot reloading
+      - .:/app
+      - /app/node_modules  # Use container's node_modules
+      - /app/.next         # Use container's .next cache
+    environment:
+      - NODE_ENV=development
+      - NEXT_TELEMETRY_DISABLED=1
+      - WATCHPACK_POLLING=true  # Enable polling for file changes in container
+      - CHOKIDAR_USEPOLLING=true
+    env_file:
+      - .env.local  # Load local environment variables
+    networks:
+      - smart-dashboard-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    # Development optimizations
+    stdin_open: true  # Keep STDIN open for interactive debugging
+    tty: true         # Allocate a pseudo-TTY
+
+networks:
+  smart-dashboard-network:
+    driver: bridge
+
+# Named volumes for better performance
+volumes:
+  node_modules:
+  next_cache:

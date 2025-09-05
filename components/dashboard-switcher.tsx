@@ -120,8 +120,9 @@ export function DashboardSwitcher({ tenantId, onDashboardChange, currentDashboar
   }
 
   const getAuthToken = async () => {
-    // Implementation depends on your auth system (Clerk, Supabase, etc.)
-    return "your-auth-token"
+    // TODO: Implement proper auth token retrieval
+    // This should integrate with your auth system (Supabase, etc.)
+    throw new Error('getAuthToken not implemented')
   }
 
   const updateURL = (dashboardId: string) => {

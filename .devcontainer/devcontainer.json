@@ -1,0 +1,82 @@
+{
+  "name": "Smart Dashboard Development",
+  "dockerComposeFile": "../docker-compose.yml",
+  "service": "smart-dashboard-dev",
+  "workspaceFolder": "/app",
+  
+  // Configure VS Code settings
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash",
+        "typescript.preferences.quoteStyle": "single",
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+          "source.fixAll.eslint": true
+        },
+        "files.associations": {
+          "*.css": "tailwindcss"
+        },
+        "emmet.includeLanguages": {
+          "javascript": "javascriptreact"
+        }
+      },
+      
+      // Extensions to install in the container
+      "extensions": [
+        "ms-vscode.vscode-typescript-next",
+        "bradlc.vscode-tailwindcss",
+        "esbenp.prettier-vscode",
+        "ms-vscode.vscode-eslint",
+        "formulahendry.auto-rename-tag",
+        "christian-kohler.path-intellisense",
+        "ms-vscode.vscode-json",
+        "yzhang.markdown-all-in-one",
+        "ms-vscode-remote.remote-containers",
+        "ms-vscode.remote-repositories",
+        "GitHub.copilot",
+        "GitHub.copilot-chat",
+        "ms-playwright.playwright",
+        "ms-vscode.test-adapter-converter",
+        "hbenl.vscode-test-explorer"
+      ]
+    }
+  },
+  
+  // Forward ports for development
+  "forwardPorts": [3000],
+  "portsAttributes": {
+    "3000": {
+      "label": "Smart Dashboard Dev Server",
+      "onAutoForward": "notify"
+    }
+  },
+  
+  // Use the non-root user created in Dockerfile
+  "remoteUser": "nextjs",
+  
+  // Run commands after container creation
+  "postCreateCommand": "npm install",
+  
+  // Commands to run after the container starts
+  "postStartCommand": "echo 'Smart Dashboard development environment ready! Visit http://localhost:3000'",
+  
+  // Mount additional volumes for better performance
+  "mounts": [
+    "source=${localWorkspaceFolder}/node_modules,target=/app/node_modules,type=bind,consistency=cached",
+    "source=${localWorkspaceFolder}/.next,target=/app/.next,type=bind,consistency=cached"
+  ],
+  
+  // Development environment features
+  "features": {
+    "ghcr.io/devcontainers/features/git:1": {},
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
+  },
+  
+  // Container environment variables
+  "containerEnv": {
+    "BROWSER": "none",
+    "NODE_ENV": "development"
+  }
+}

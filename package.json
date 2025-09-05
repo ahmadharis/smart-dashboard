@@ -6,7 +6,17 @@
     "build": "next build",
     "dev": "next dev",
     "lint": "next lint",
-    "start": "next start"
+    "start": "next start",
+    "docker:dev": "docker-compose up --build",
+    "docker:dev:detached": "docker-compose up --build -d",
+    "docker:dev:down": "docker-compose down",
+    "docker:dev:logs": "docker-compose logs -f smart-dashboard-dev",
+    "docker:prod:build": "docker build -t smart-dashboard:latest --target production .",
+    "docker:prod": "docker-compose -f docker-compose.prod.yml up --build",
+    "docker:prod:detached": "docker-compose -f docker-compose.prod.yml up --build -d",
+    "docker:prod:down": "docker-compose -f docker-compose.prod.yml down",
+    "docker:clean": "docker system prune -f && docker volume prune -f",
+    "docker:rebuild": "docker-compose down && docker-compose build --no-cache && docker-compose up"
   },
   "dependencies": {
     "@emotion/is-prop-valid": "latest",

@@ -130,3 +130,51 @@ dist
 # Temporary folders
 tmp/
 temp/
+
+# Docker (only ignore actual environment files, keep templates)
+.env.production
+.env.local
+
+# Docker volumes and build cache
+.docker-build-cache
+
+# Database dumps and backups
+*.sql.backup
+*.dump
+*.backup
+
+# Security keys and certificates (in case any get accidentally created locally)
+*.key
+*.crt
+*.p12
+*.pfx
+
+# Supabase local development files (if using local Supabase)
+supabase/.branches
+supabase/.temp
+
+# Editor/IDE specific files
+.vscode/settings.json
+.vscode/launch.json
+.vscode/extensions.json
+*.sublime-workspace
+*.sublime-project
+
+# Testing and development artifacts
+.env.test
+playwright-report/
+test-results/
+
+# Backup files
+*.orig
+*.bak
+*.backup
+
+# Package manager artifacts
+.yarn/
+.pnp.*
+.pnpm-store/
+
+# Local development utilities
+.tool-versions
+.nvmrc.local
