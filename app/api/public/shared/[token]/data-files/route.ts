@@ -9,20 +9,10 @@ export async function OPTIONS() {
 
 export async function GET(request: NextRequest, { params }: { params: { token: string } }) {
   try {
-    console.log("[v0] Public data files API called with token:", params.token)
-
     const authResult = await validatePublicAccessByToken(params.token)
     if (!authResult.isValid || !authResult.share || !authResult.tenant) {
-      console.log("[v0] Auth validation failed:", authResult.error)
       return createSecureResponse({ error: authResult.error || "Access denied" }, 403)
     }
-
-    console.log(
-      "[v0] Auth validated for dashboard:",
-      authResult.share.dashboard_id,
-      "tenant:",
-      authResult.tenant.tenant_id,
-    )
 
     const supabase = await createClient()
 
@@ -34,23 +24,8 @@ export async function GET(request: NextRequest, { params }: { params: { token: s
       .order("sort_order", { ascending: true })
 
     if (dataFilesError) {
-      console.error("[v0] Data files query error:", dataFilesError)
       return createSecureResponse({ error: "Failed to fetch data files" }, 500)
     }
-
-    console.log("[v0] Found data files:", dataFiles?.length || 0)
-    console.log(
-      "[v0] Data files details:",
-      dataFiles?.map((f) => ({
-        id: f.id,
-        hasData: !!f.json_data, // Check json_data instead of data
-        dataLength: f.json_data
-          ? typeof f.json_data === "string"
-            ? f.json_data.length
-            : JSON.stringify(f.json_data).length
-          : 0,
-      })),
-    )
 
     const mappedFiles = (dataFiles || []).map((file) => ({
       id: file.id,
@@ -66,7 +41,6 @@ export async function GET(request: NextRequest, { params }: { params: { token: s
 
     return createSecureResponse(mappedFiles)
   } catch (error) {
-    console.error("[v0] Error fetching shared dashboard data files:", error)
     return createSecureResponse({ error: "Internal server error" }, 500)
   }
 }

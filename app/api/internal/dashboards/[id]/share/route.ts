@@ -49,8 +49,6 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
 export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    console.log("[v0] Starting share creation for dashboard:", params.id)
-
     const authResult = await validateAuthAndTenant(request, true)
     if (!authResult.isValid || !authResult.tenantId) {
       return NextResponse.json({ error: authResult.error || "Authentication required" }, { status: 401 })
@@ -61,8 +59,6 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     const body = await request.json()
     const { expires_at } = body
 
-    console.log("[v0] Checking public sharing setting for tenant:", tenantId)
-
     // Check if tenant allows public sharing
     const { data: settingData, error: settingError } = await supabase
       .from("settings")
@@ -71,13 +67,9 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       .eq("key", "allow_public_sharing")
       .single()
 
-    console.log("[v0] Setting data:", settingData, "Setting error:", settingError)
-
     if (settingData?.value !== "true") {
       return NextResponse.json({ error: "Public sharing is disabled for this tenant" }, { status: 403 })
     }
-
-    console.log("[v0] Verifying dashboard exists for tenant")
 
     // Verify dashboard belongs to tenant
     const { data: dashboard, error: dashboardError } = await supabase
@@ -87,15 +79,12 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       .eq("tenant_id", tenantId)
       .single()
 
-    console.log("[v0] Dashboard data:", dashboard, "Dashboard error:", dashboardError)
-
     if (dashboardError || !dashboard) {
       return NextResponse.json({ error: "Dashboard not found" }, { status: 404 })
     }
 
     // Generate new share token
     const shareToken = generateShareToken()
-    console.log("[v0] Generated share token:", shareToken)
 
     // Create or overwrite share (UPSERT)
     const { data: share, error: shareError } = await supabase
@@ -111,8 +100,6 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       })
       .select()
       .single()
-
-    console.log("[v0] Share creation result:", share, "Share error:", shareError)
 
     if (shareError) {
       console.error("Share creation error:", shareError)

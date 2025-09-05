@@ -68,15 +68,8 @@ export async function validateTenant(tenantId: string): Promise<boolean> {
 }
 
 export async function validateSecurity(request: NextRequest, requireTenant = true): Promise<SecurityValidationResult> {
-  console.log("[v0] Security validation starting for:", request.url)
-
   // Validate API key and get associated tenant
   const apiKeyResult = await validateApiKey(request)
-  console.log("[v0] API key validation result:", {
-    isValid: apiKeyResult.isValid,
-    error: apiKeyResult.error,
-    tenantId: apiKeyResult.tenantId,
-  })
 
   if (!apiKeyResult.isValid) {
     return {
@@ -95,7 +88,6 @@ export async function validateSecurity(request: NextRequest, requireTenant = tru
     const tenantId = requestedTenantId || apiKeyResult.tenantId
 
     if (!tenantId) {
-      console.log("[v0] Security validation - No tenant ID provided")
       return {
         isValid: false,
         error: "Tenant ID is required. Provide X-Tenant-Id header or tenant_id parameter.",
@@ -104,7 +96,6 @@ export async function validateSecurity(request: NextRequest, requireTenant = tru
 
     // Ensure the requested tenant matches the API key's tenant
     if (requestedTenantId && requestedTenantId !== apiKeyResult.tenantId) {
-      console.log("[v0] Security validation - API key does not match requested tenant")
       return {
         isValid: false,
         error: "API key does not have access to the requested tenant",
@@ -112,7 +103,6 @@ export async function validateSecurity(request: NextRequest, requireTenant = tru
     }
 
     const isTenantValid = await validateTenant(tenantId)
-    console.log("[v0] Security validation - Tenant validation result:", isTenantValid)
 
     if (!isTenantValid) {
       return {

@@ -5,8 +5,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { DataChart } from "@/components/data-chart"
-import { Eye, Calendar, AlertCircle, RefreshCw, BarChart3, ChevronLeft, ChevronRight } from "lucide-react"
+import { Eye, Calendar, AlertCircle, RefreshCw, BarChart3, Tv } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import Link from "next/link"
 
 interface DataFile {
   id: string
@@ -49,8 +50,6 @@ export default function PublicDashboardPage({ params }: PublicDashboardPageProps
   const [dataFiles, setDataFiles] = useState<DataFile[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [currentPage, setCurrentPage] = useState(1)
-  const [chartsPerPage] = useState(6) // Show 6 charts per page (3x2 grid)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -85,37 +84,17 @@ export default function PublicDashboardPage({ params }: PublicDashboardPageProps
 
   const fetchDataFiles = async () => {
     try {
-      console.log("[v0] Fetching data files for token:", params.token)
-
       const response = await fetch(`/api/public/shared/${params.token}/data-files`)
 
       if (!response.ok) {
-        console.log("[v0] Data files fetch failed with status:", response.status)
         throw new Error("Failed to fetch data files")
       }
 
       const files = await response.json()
-      console.log("[v0] Received data files:", files?.length || 0)
-      console.log(
-        "[v0] Files data:",
-        files?.map((f: any) => ({
-          id: f.id,
-          name: f.name,
-          type: f.type,
-          hasData: !!f.data,
-          dataType: typeof f.data,
-          dataPreview: f.data
-            ? typeof f.data === "string"
-              ? f.data.substring(0, 100)
-              : JSON.stringify(f.data).substring(0, 100)
-            : null,
-        })),
-      )
 
       const sortedFiles = Array.isArray(files) ? files.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)) : []
       setDataFiles(sortedFiles)
     } catch (error: any) {
-      console.error("[v0] Data files error:", error)
       toast({
         title: "Warning",
         description: "Failed to load chart data",
@@ -126,33 +105,16 @@ export default function PublicDashboardPage({ params }: PublicDashboardPageProps
 
   const processChartData = (rawData: any, fieldOrder?: string[]) => {
     try {
-      console.log("[v0] Processing chart data:", {
-        rawDataType: typeof rawData,
-        rawDataPreview: rawData
-          ? typeof rawData === "string"
-            ? rawData.substring(0, 100)
-            : JSON.stringify(rawData).substring(0, 100)
-          : null,
-        fieldOrder,
-      })
-
       let parsedData = rawData
 
       if (typeof rawData === "string") {
         parsedData = JSON.parse(rawData)
       }
 
-      console.log("[v0] Parsed data:", {
-        isArray: Array.isArray(parsedData),
-        length: Array.isArray(parsedData) ? parsedData.length : "not array",
-        firstItem: Array.isArray(parsedData) && parsedData.length > 0 ? parsedData[0] : null,
-      })
-
       if (Array.isArray(parsedData) && parsedData.length > 0) {
         const firstItem = parsedData[0]
         if (firstItem && typeof firstItem === "object") {
           const columnNames = fieldOrder && fieldOrder.length > 0 ? fieldOrder : Object.keys(firstItem)
-          console.log("[v0] Column names:", columnNames)
 
           if (columnNames.length >= 2) {
             const processedData = parsedData.map((item) => {
@@ -165,16 +127,13 @@ export default function PublicDashboardPage({ params }: PublicDashboardPageProps
               return processedItem
             })
 
-            console.log("[v0] Processed chart data:", processedData.length, "items")
             return processedData
           }
         }
       }
 
-      console.log("[v0] No valid chart data found")
       return []
     } catch (error) {
-      console.error("[v0] Error processing chart data:", error)
       return []
     }
   }
@@ -188,29 +147,6 @@ export default function PublicDashboardPage({ params }: PublicDashboardPageProps
     if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`
     if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`
     return `${Math.floor(diffInSeconds / 86400)}d ago`
-  }
-
-  const totalPages = Math.ceil(dataFiles.length / chartsPerPage)
-  const startIndex = (currentPage - 1) * chartsPerPage
-  const endIndex = startIndex + chartsPerPage
-  const currentCharts = dataFiles.slice(startIndex, endIndex)
-
-  const goToPage = (page: number) => {
-    setCurrentPage(page)
-    // Scroll to top when changing pages
-    window.scrollTo({ top: 0, behavior: "smooth" })
-  }
-
-  const goToPreviousPage = () => {
-    if (currentPage > 1) {
-      goToPage(currentPage - 1)
-    }
-  }
-
-  const goToNextPage = () => {
-    if (currentPage < totalPages) {
-      goToPage(currentPage + 1)
-    }
   }
 
   if (error) {
@@ -278,11 +214,12 @@ export default function PublicDashboardPage({ params }: PublicDashboardPageProps
                 <Badge variant="outline" className="text-xs">
                   {dataFiles.length} Dataset{dataFiles.length !== 1 ? "s" : ""}
                 </Badge>
-                {totalPages > 1 && (
-                  <Badge variant="secondary" className="text-xs">
-                    Page {currentPage} of {totalPages}
-                  </Badge>
-                )}
+                <Link href={`/shared/${params.token}/tv-mode`}>
+                  <Button variant="outline" size="sm" className="transition-all duration-200 bg-transparent">
+                    <Tv className="h-4 w-4 sm:mr-2" />
+                    <span className="hidden sm:inline">TV Mode</span>
+                  </Button>
+                </Link>
                 <Button
                   onClick={fetchDataFiles}
                   variant="outline"
@@ -307,10 +244,9 @@ export default function PublicDashboardPage({ params }: PublicDashboardPageProps
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 pb-8">
-              {currentCharts.map((file, index) => {
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-8">
+              {dataFiles.map((file, index) => {
                 const chartData = processChartData(file.data, file.field_order)
-                const globalIndex = startIndex + index
 
                 return (
                   <Card
@@ -347,46 +283,6 @@ export default function PublicDashboardPage({ params }: PublicDashboardPageProps
                 )
               })}
             </div>
-
-            {totalPages > 1 && (
-              <div className="flex items-center justify-center gap-2 pb-8">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={goToPreviousPage}
-                  disabled={currentPage === 1}
-                  className="bg-transparent"
-                >
-                  <ChevronLeft className="h-4 w-4 mr-1" />
-                  Previous
-                </Button>
-
-                <div className="flex items-center gap-1">
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                    <Button
-                      key={page}
-                      variant={currentPage === page ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => goToPage(page)}
-                      className={currentPage === page ? "" : "bg-transparent"}
-                    >
-                      {page}
-                    </Button>
-                  ))}
-                </div>
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={goToNextPage}
-                  disabled={currentPage === totalPages}
-                  className="bg-transparent"
-                >
-                  Next
-                  <ChevronRight className="h-4 w-4 ml-1" />
-                </Button>
-              </div>
-            )}
           </>
         )}
       </div>
