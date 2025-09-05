@@ -11,6 +11,8 @@ Smart Dashboard is a comprehensive multi-tenant dashboard and visualization appl
 - **Dataset Management**: Supports dataset replacement functionality - when a dataset already exists in a dashboard, new uploads replace the existing data seamlessly
 - **Enterprise Integration**: Designed for tools like Moca Client to set up automated jobs that push data to the visualization engine
 - **Multi-Tenant Architecture**: Complete tenant isolation with secure data segregation and user access controls
+- **Public Dashboard Sharing**: Secure token-based sharing of dashboards with external users
+- **TV Mode**: Full-screen slideshow mode for dashboard presentations and public displays
 
 The platform enables organizations to transform raw data into meaningful visual insights through an intuitive dashboard interface, making it ideal for business intelligence, reporting, and data monitoring workflows.
 
@@ -26,6 +28,8 @@ The platform enables organizations to transform raw data into meaningful visual 
 - 📱 **Responsive Design** - Modern UI with dark/light theme support
 - 🚀 **Real-time Updates** - Live data synchronization across components
 - 🔗 **Integration Ready** - Built for automated data pipeline integration
+- 🔗 **Public Dashboard Sharing** - Secure token-based sharing of dashboards with external users
+- 📺 **TV Mode** - Full-screen slideshow mode for dashboard presentations and public displays
 
 ## Quick Start
 
@@ -73,6 +77,9 @@ scripts/005_create_settings_table.sql
 scripts/006_create_user_profiles_table.sql
 scripts/007_create_user_tenants_table.sql
 scripts/009_add_api_key_to_tenants.sql
+scripts/010_create_public_dashboard_shares.sql
+scripts/011_add_public_sharing_setting.sql
+scripts/012_fix_data_files_unique_constraint.sql
 \`\`\`
 
 Visit `http://localhost:3000` to access the application.
@@ -90,6 +97,7 @@ The platform uses the following core tables:
 - **data_files** - Uploaded XML files and converted JSON data
 - **settings** - Tenant-specific configuration settings
 - **user_profiles** - Extended user profile information
+- **public_dashboard_shares** - Records for public dashboard sharing tokens
 
 ### Authentication Flow
 
@@ -106,6 +114,9 @@ The platform uses the following core tables:
 - **Row-Level Security** - Database-level access control
 - **API Authentication** - Comprehensive token validation middleware
 - **Input Validation** - XML sanitization and data validation
+- **CORS Protection** - Restricted cross-origin access with domain whitelisting
+- **Rate Limiting** - Request throttling to prevent abuse (20/min public, 50/min internal)
+- **Input Size Limits** - Request size restrictions to prevent DoS attacks
 
 ## API Documentation
 
@@ -132,6 +143,46 @@ Fetch tenants accessible to authenticated user.
       "id": "uuid",
       "name": "Tenant Name",
       "domain": "example.com",
+      "created_at": "2024-01-01T00:00:00Z"
+    }
+  ]
+}
+\`\`\`
+
+#### GET /api/public/shared/[token]
+Access shared dashboard data via public token.
+
+**Parameters:**
+- `token` - Public share token for the dashboard
+
+**Response:**
+\`\`\`json
+{
+  "dashboard": {
+    "id": "uuid",
+    "title": "Dashboard Title",
+    "description": "Dashboard description"
+  },
+  "tenant": {
+    "name": "Tenant Name"
+  }
+}
+\`\`\`
+
+#### GET /api/public/shared/[token]/data-files
+Fetch data files for a publicly shared dashboard.
+
+**Parameters:**
+- `token` - Public share token for the dashboard
+
+**Response:**
+\`\`\`json
+{
+  "dataFiles": [
+    {
+      "id": "uuid",
+      "data_type": "Sales",
+      "json_data": {...},
       "created_at": "2024-01-01T00:00:00Z"
     }
   ]
@@ -253,21 +304,12 @@ curl -X POST http://localhost:3000/api/upload-xml \
 - ✅ Tenant access verification via user_tenants table
 - ✅ Row-level security policies in Supabase
 - ✅ Input sanitization and validation
-- ✅ CORS configuration for file uploads
+- ✅ CORS configuration with domain restrictions
+- ✅ Rate limiting on all endpoints
+- ✅ Input size limits to prevent DoS attacks
 - ✅ Environment variable protection
-
-### Testing
-
-\`\`\`bash
-# Run development server
-npm run dev
-
-# Build for production
-npm run build
-
-# Type checking
-npm run type-check
-\`\`\`
+- ✅ Public share token validation
+- ✅ Secure public dashboard access
 
 ## Deployment
 
@@ -301,18 +343,17 @@ Ensure all environment variables are configured in your deployment platform:
 - Check database migration script execution
 
 **File Upload Issues:**
-- Validate XML file format and size limits
+- Validate XML file format and size limits (50MB max for upload-xml, 10MB for others)
 - Ensure tenant API key is valid and belongs to the correct tenant
 - Check dashboard IDs are valid for the authenticated tenant
 - Check CORS configuration for cross-origin requests
+- Verify request size doesn't exceed configured limits
 
-### Debug Mode
-
-Enable debug logging by adding console.log statements:
-
-\`\`\`javascript
-console.log("[v0] Debug info:", data);
-\`\`\`
+**Public Sharing Issues:**
+- Ensure public share tokens are valid and not expired
+- Check that shared dashboards have proper data access
+- Verify TV mode functionality with different refresh intervals
+- Confirm public URLs are accessible without authentication
 
 ## Contributing
 
