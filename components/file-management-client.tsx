@@ -268,10 +268,9 @@ export function FileManagementClient({ tenantId }: FileManagementClientProps) {
         await loadDataFiles()
         await loadDashboards() // Refresh dashboards in case a new one was created
 
-        // Reset form
         setXmlInput("")
         setSelectedDashboard("")
-        setSelectedType("")
+        // Don't reset selectedType - keep it available for reuse
         setCustomType("")
         setNewDashboardTitle("")
 
