@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createClient } from "./supabase"
+import { createServiceClient } from "./supabase"
 
 export interface SecurityValidationResult {
   isValid: boolean
@@ -22,10 +22,11 @@ export async function validateApiKey(
   }
 
   try {
-    const supabase = createClient()
+    const supabase = createServiceClient()
     const { data, error } = await supabase.from("tenants").select("tenant_id").eq("api_key", providedKey).single()
 
     if (error || !data) {
+      console.error("API key validation error:", error) // Added logging for debugging
       return {
         isValid: false,
         error: "Invalid API key",
@@ -52,7 +53,7 @@ export async function validateTenant(tenantId: string): Promise<boolean> {
   }
 
   try {
-    const supabase = createClient()
+    const supabase = createServiceClient()
     const { data, error } = await supabase.from("tenants").select("tenant_id").eq("tenant_id", tenantId).single()
 
     return !error && !!data
