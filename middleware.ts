@@ -50,6 +50,24 @@ function checkPublicRateLimit(ip: string, limit = 20, windowMs = 60000): boolean
   return true
 }
 
+function checkUploadXmlRateLimit(ip: string, limit = 100, windowMs = 60000): boolean {
+  const now = Date.now()
+  const key = `upload_xml_${ip}`
+  const record = publicRateLimitMap.get(key)
+
+  if (!record || now > record.resetTime) {
+    publicRateLimitMap.set(key, { count: 1, resetTime: now + windowMs })
+    return true
+  }
+
+  if (record.count >= limit) {
+    return false
+  }
+
+  record.count++
+  return true
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
@@ -82,7 +100,12 @@ export async function middleware(request: NextRequest) {
   )
   supabaseResponse.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()")
 
-  if (pathname.startsWith("/api/public/") || pathname.startsWith("/api/upload-xml")) {
+  if (pathname.startsWith("/api/upload-xml")) {
+    const clientIP = request.ip || request.headers.get("x-forwarded-for") || "unknown"
+    if (!checkUploadXmlRateLimit(clientIP, 100, 60000)) {
+      return NextResponse.json({ error: "Too many requests" }, { status: 429 })
+    }
+  } else if (pathname.startsWith("/api/public/")) {
     const clientIP = request.ip || request.headers.get("x-forwarded-for") || "unknown"
     if (!checkPublicRateLimit(clientIP, 20, 60000)) {
       return NextResponse.json({ error: "Too many requests" }, { status: 429 })
