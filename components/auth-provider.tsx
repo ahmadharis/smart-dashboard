@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, useCallback, useMemo, useRef, type ReactNode } from "react"
 import { createClient } from "@/lib/supabase/client"
+import { usePathname } from "next/navigation"
 import type { User } from "@supabase/supabase-js"
 
 interface TenantAccess {
@@ -28,6 +29,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const retryCount = useRef(0)
   const maxRetries = 3
   const supabase = useMemo(() => createClient(), [])
+  const pathname = usePathname()
+  const isPublicRoute = pathname?.startsWith("/shared/")
 
   const shouldProcessAuthEvent = useCallback((event: string): boolean => {
     const now = Date.now()
@@ -42,57 +45,68 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return true
   }, [])
 
-  const fetchTenantPermissions = useCallback(async (currentUser: User): Promise<TenantAccess> => {
-    if (isFetchingPermissions.current) {
-      return {}
-    }
-
-    isFetchingPermissions.current = true
-
-    try {
-      let lastError: Error | null = null
-      for (let attempt = 0; attempt <= maxRetries; attempt++) {
-        try {
-          const response = await fetch("/api/internal/tenant-permissions", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ userId: currentUser.id }),
-            signal: AbortSignal.timeout(10000), // 10 second timeout
-          })
-
-          if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-          }
-
-          const contentType = response.headers.get("content-type")
-          if (!contentType || !contentType.includes("application/json")) {
-            throw new Error("Non-JSON response from tenant permissions API")
-          }
-
-          const data = await response.json()
-          retryCount.current = 0 // Reset retry count on success
-          return data.tenantAccess || {}
-        } catch (error) {
-          lastError = error as Error
-          if (attempt < maxRetries) {
-            const delay = Math.pow(2, attempt) * 1000 // Exponential backoff: 1s, 2s, 4s
-            await new Promise((resolve) => setTimeout(resolve, delay))
-          }
-        }
+  const fetchTenantPermissions = useCallback(
+    async (currentUser: User): Promise<TenantAccess> => {
+      if (isPublicRoute) {
+        return {}
       }
 
-      throw lastError || new Error("Max retries exceeded")
-    } catch (error) {
-      retryCount.current++
-      return {}
-    } finally {
-      isFetchingPermissions.current = false
-    }
-  }, [])
+      if (isFetchingPermissions.current) {
+        return {}
+      }
+
+      isFetchingPermissions.current = true
+
+      try {
+        let lastError: Error | null = null
+        for (let attempt = 0; attempt <= maxRetries; attempt++) {
+          try {
+            const response = await fetch("/api/internal/tenant-permissions", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ userId: currentUser.id }),
+              signal: AbortSignal.timeout(10000), // 10 second timeout
+            })
+
+            if (!response.ok) {
+              throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+            }
+
+            const contentType = response.headers.get("content-type")
+            if (!contentType || !contentType.includes("application/json")) {
+              throw new Error("Non-JSON response from tenant permissions API")
+            }
+
+            const data = await response.json()
+            retryCount.current = 0 // Reset retry count on success
+            return data.tenantAccess || {}
+          } catch (error) {
+            lastError = error as Error
+            if (attempt < maxRetries) {
+              const delay = Math.pow(2, attempt) * 1000 // Exponential backoff: 1s, 2s, 4s
+              await new Promise((resolve) => setTimeout(resolve, delay))
+            }
+          }
+        }
+
+        throw lastError || new Error("Max retries exceeded")
+      } catch (error) {
+        retryCount.current++
+        return {}
+      } finally {
+        isFetchingPermissions.current = false
+      }
+    },
+    [isPublicRoute],
+  )
 
   const refreshPermissions = useCallback(async () => {
+    if (isPublicRoute) {
+      return
+    }
+
     const currentUser = user
     if (!currentUser) {
       return
@@ -100,7 +114,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const freshPermissions = await fetchTenantPermissions(currentUser)
     setTenantAccess(freshPermissions)
-  }, [fetchTenantPermissions]) // Removed user dependency
+  }, [fetchTenantPermissions, isPublicRoute])
 
   const checkTenantAccess = useCallback(
     (tenantId: string): boolean => {
@@ -126,14 +140,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (session?.user) {
           setUser(session.user)
 
-          try {
-            const permissions = await fetchTenantPermissions(session.user)
-            if (mounted) {
-              setTenantAccess(permissions)
-              setIsLoading(false)
-              initializationComplete = true
+          if (!isPublicRoute) {
+            try {
+              const permissions = await fetchTenantPermissions(session.user)
+              if (mounted) {
+                setTenantAccess(permissions)
+                setIsLoading(false)
+                initializationComplete = true
+              }
+            } catch (error) {
+              if (mounted) {
+                setIsLoading(false)
+                initializationComplete = true
+              }
             }
-          } catch (error) {
+          } else {
             if (mounted) {
               setIsLoading(false)
               initializationComplete = true
@@ -168,13 +189,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (event === "SIGNED_IN" && session?.user) {
           setUser(session.user)
 
-          try {
-            const permissions = await fetchTenantPermissions(session.user)
-            if (mounted) {
-              setTenantAccess(permissions)
-              setIsLoading(false)
+          if (!isPublicRoute) {
+            try {
+              const permissions = await fetchTenantPermissions(session.user)
+              if (mounted) {
+                setTenantAccess(permissions)
+                setIsLoading(false)
+              }
+            } catch (error) {
+              if (mounted) {
+                setIsLoading(false)
+              }
             }
-          } catch (error) {
+          } else {
             if (mounted) {
               setIsLoading(false)
             }
@@ -203,7 +230,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         subscription.unsubscribe()
       }
     }
-  }, [supabase, fetchTenantPermissions, shouldProcessAuthEvent])
+  }, [supabase, fetchTenantPermissions, shouldProcessAuthEvent, isPublicRoute])
 
   const contextValue = useMemo(
     () => ({

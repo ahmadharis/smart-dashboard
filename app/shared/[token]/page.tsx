@@ -85,17 +85,37 @@ export default function PublicDashboardPage({ params }: PublicDashboardPageProps
 
   const fetchDataFiles = async () => {
     try {
+      console.log("[v0] Fetching data files for token:", params.token)
+
       const response = await fetch(`/api/public/shared/${params.token}/data-files`)
 
       if (!response.ok) {
+        console.log("[v0] Data files fetch failed with status:", response.status)
         throw new Error("Failed to fetch data files")
       }
 
       const files = await response.json()
+      console.log("[v0] Received data files:", files?.length || 0)
+      console.log(
+        "[v0] Files data:",
+        files?.map((f: any) => ({
+          id: f.id,
+          name: f.name,
+          type: f.type,
+          hasData: !!f.data,
+          dataType: typeof f.data,
+          dataPreview: f.data
+            ? typeof f.data === "string"
+              ? f.data.substring(0, 100)
+              : JSON.stringify(f.data).substring(0, 100)
+            : null,
+        })),
+      )
+
       const sortedFiles = Array.isArray(files) ? files.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)) : []
       setDataFiles(sortedFiles)
     } catch (error: any) {
-      console.error("Data files error:", error)
+      console.error("[v0] Data files error:", error)
       toast({
         title: "Warning",
         description: "Failed to load chart data",
@@ -104,25 +124,38 @@ export default function PublicDashboardPage({ params }: PublicDashboardPageProps
     }
   }
 
-  const handleRefresh = () => {
-    fetchDataFiles()
-  }
-
   const processChartData = (rawData: any, fieldOrder?: string[]) => {
     try {
+      console.log("[v0] Processing chart data:", {
+        rawDataType: typeof rawData,
+        rawDataPreview: rawData
+          ? typeof rawData === "string"
+            ? rawData.substring(0, 100)
+            : JSON.stringify(rawData).substring(0, 100)
+          : null,
+        fieldOrder,
+      })
+
       let parsedData = rawData
 
       if (typeof rawData === "string") {
         parsedData = JSON.parse(rawData)
       }
 
+      console.log("[v0] Parsed data:", {
+        isArray: Array.isArray(parsedData),
+        length: Array.isArray(parsedData) ? parsedData.length : "not array",
+        firstItem: Array.isArray(parsedData) && parsedData.length > 0 ? parsedData[0] : null,
+      })
+
       if (Array.isArray(parsedData) && parsedData.length > 0) {
         const firstItem = parsedData[0]
         if (firstItem && typeof firstItem === "object") {
           const columnNames = fieldOrder && fieldOrder.length > 0 ? fieldOrder : Object.keys(firstItem)
+          console.log("[v0] Column names:", columnNames)
 
           if (columnNames.length >= 2) {
-            return parsedData.map((item) => {
+            const processedData = parsedData.map((item) => {
               const processedItem = { ...item }
               columnNames.forEach((col, index) => {
                 if (index === 1) {
@@ -131,13 +164,17 @@ export default function PublicDashboardPage({ params }: PublicDashboardPageProps
               })
               return processedItem
             })
+
+            console.log("[v0] Processed chart data:", processedData.length, "items")
+            return processedData
           }
         }
       }
 
+      console.log("[v0] No valid chart data found")
       return []
     } catch (error) {
-      console.error("Error processing chart data:", error)
+      console.error("[v0] Error processing chart data:", error)
       return []
     }
   }
@@ -247,7 +284,7 @@ export default function PublicDashboardPage({ params }: PublicDashboardPageProps
                   </Badge>
                 )}
                 <Button
-                  onClick={handleRefresh}
+                  onClick={fetchDataFiles}
                   variant="outline"
                   size="sm"
                   className="transition-all duration-200 bg-transparent"
