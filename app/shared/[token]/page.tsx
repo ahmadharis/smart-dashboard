@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { DataChart } from "@/components/data-chart"
-import { Eye, Calendar, AlertCircle, RefreshCw, BarChart3 } from "lucide-react"
+import { Eye, Calendar, AlertCircle, RefreshCw, BarChart3, ChevronLeft, ChevronRight } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
 interface DataFile {
@@ -49,6 +49,8 @@ export default function PublicDashboardPage({ params }: PublicDashboardPageProps
   const [dataFiles, setDataFiles] = useState<DataFile[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [chartsPerPage] = useState(6) // Show 6 charts per page (3x2 grid)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -151,6 +153,29 @@ export default function PublicDashboardPage({ params }: PublicDashboardPageProps
     return `${Math.floor(diffInSeconds / 86400)}d ago`
   }
 
+  const totalPages = Math.ceil(dataFiles.length / chartsPerPage)
+  const startIndex = (currentPage - 1) * chartsPerPage
+  const endIndex = startIndex + chartsPerPage
+  const currentCharts = dataFiles.slice(startIndex, endIndex)
+
+  const goToPage = (page: number) => {
+    setCurrentPage(page)
+    // Scroll to top when changing pages
+    window.scrollTo({ top: 0, behavior: "smooth" })
+  }
+
+  const goToPreviousPage = () => {
+    if (currentPage > 1) {
+      goToPage(currentPage - 1)
+    }
+  }
+
+  const goToNextPage = () => {
+    if (currentPage < totalPages) {
+      goToPage(currentPage + 1)
+    }
+  }
+
   if (error) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -216,6 +241,11 @@ export default function PublicDashboardPage({ params }: PublicDashboardPageProps
                 <Badge variant="outline" className="text-xs">
                   {dataFiles.length} Dataset{dataFiles.length !== 1 ? "s" : ""}
                 </Badge>
+                {totalPages > 1 && (
+                  <Badge variant="secondary" className="text-xs">
+                    Page {currentPage} of {totalPages}
+                  </Badge>
+                )}
                 <Button
                   onClick={handleRefresh}
                   variant="outline"
@@ -239,45 +269,88 @@ export default function PublicDashboardPage({ params }: PublicDashboardPageProps
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-8">
-            {dataFiles.map((file, index) => {
-              const chartData = processChartData(file.data, file.field_order)
+          <>
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 pb-8">
+              {currentCharts.map((file, index) => {
+                const chartData = processChartData(file.data, file.field_order)
+                const globalIndex = startIndex + index
 
-              return (
-                <Card
-                  key={file.id || file.name}
-                  className="transition-all duration-300 hover:shadow-lg animate-in fade-in slide-in-from-bottom-4"
-                  style={{ animationDelay: `${index * 100}ms` }}
+                return (
+                  <Card
+                    key={file.id || file.name}
+                    className="transition-all duration-300 hover:shadow-lg animate-in fade-in slide-in-from-bottom-4"
+                    style={{ animationDelay: `${index * 100}ms` }}
+                  >
+                    <CardHeader className="pb-4">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-xl font-semibold capitalize">{file.type}</CardTitle>
+                        <div className="flex items-center text-sm text-muted-foreground">
+                          <BarChart3 className="h-4 w-4 mr-1" />
+                          {chartData.length} points
+                        </div>
+                      </div>
+                      <CardDescription>Updated {formatRelativeTime(file.updated_at)}</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      {chartData.length === 0 ? (
+                        <div className="p-4 text-center text-muted-foreground">
+                          <p>No chart data available</p>
+                        </div>
+                      ) : (
+                        <DataChart
+                          data={chartData}
+                          title={file.type}
+                          chartType={file.chart_type || "line"}
+                          fieldOrder={file.field_order}
+                          isAuthenticated={false} // Disable chart type selector for public view
+                        />
+                      )}
+                    </CardContent>
+                  </Card>
+                )
+              })}
+            </div>
+
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-2 pb-8">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={goToPreviousPage}
+                  disabled={currentPage === 1}
+                  className="bg-transparent"
                 >
-                  <CardHeader className="pb-4">
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-xl font-semibold capitalize">{file.type}</CardTitle>
-                      <div className="flex items-center text-sm text-muted-foreground">
-                        <BarChart3 className="h-4 w-4 mr-1" />
-                        {chartData.length} points
-                      </div>
-                    </div>
-                    <CardDescription>Updated {formatRelativeTime(file.updated_at)}</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    {chartData.length === 0 ? (
-                      <div className="p-4 text-center text-muted-foreground">
-                        <p>No chart data available</p>
-                      </div>
-                    ) : (
-                      <DataChart
-                        data={chartData}
-                        title={file.type}
-                        chartType={file.chart_type || "line"}
-                        fieldOrder={file.field_order}
-                        isAuthenticated={false} // Disable chart type selector for public view
-                      />
-                    )}
-                  </CardContent>
-                </Card>
-              )
-            })}
-          </div>
+                  <ChevronLeft className="h-4 w-4 mr-1" />
+                  Previous
+                </Button>
+
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                    <Button
+                      key={page}
+                      variant={currentPage === page ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => goToPage(page)}
+                      className={currentPage === page ? "" : "bg-transparent"}
+                    >
+                      {page}
+                    </Button>
+                  ))}
+                </div>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={goToNextPage}
+                  disabled={currentPage === totalPages}
+                  className="bg-transparent"
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

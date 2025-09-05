@@ -105,7 +105,8 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/_next/") ||
     pathname.startsWith("/favicon.ico") ||
     pathname === "/" ||
-    pathname.startsWith("/auth/")
+    pathname.startsWith("/auth/") ||
+    pathname.startsWith("/shared/")
   ) {
     return supabaseResponse
   }

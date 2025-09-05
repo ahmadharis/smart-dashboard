@@ -54,7 +54,7 @@ export function ShareDialog({
   dashboardTitle,
   tenantApiKey,
 }: ShareDialogProps) {
-  const [shareType, setShareType] = useState<"private" | "public">("private")
+  const [shareType, setShareType] = useState<"private" | "public" | null>(null)
   const [publicShare, setPublicShare] = useState<PublicShare | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isPublicSharingEnabled, setIsPublicSharingEnabled] = useState(false)
@@ -64,6 +64,7 @@ export function ShareDialog({
 
   useEffect(() => {
     if (isOpen) {
+      setShareType(null)
       checkPublicSharingStatus()
       fetchExistingShare()
     }
@@ -94,10 +95,15 @@ export function ShareDialog({
             setHasExpiration(true)
             setExpirationDate(new Date(data.share.expires_at))
           }
+        } else {
+          setShareType("private")
         }
+      } else {
+        setShareType("private")
       }
     } catch (error) {
       console.error("Failed to fetch existing share:", error)
+      setShareType("private")
     }
   }
 
@@ -231,203 +237,208 @@ export function ShareDialog({
         </DialogHeader>
 
         <div className="space-y-6">
-          <RadioGroup value={shareType} onValueChange={(value) => setShareType(value as "private" | "public")}>
-            {/* Private Sharing Option */}
-            <div className="flex items-start space-x-3 p-3 rounded-lg border">
-              <RadioGroupItem value="private" id="private" className="mt-1" />
-              <div className="flex-1 space-y-2">
-                <div className="flex items-center gap-2">
-                  <Lock className="h-4 w-4 text-muted-foreground" />
-                  <Label htmlFor="private" className="font-medium">
-                    Private (Login Required)
-                  </Label>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Only authenticated users with access to this tenant can view the dashboard.
-                </p>
-                <div className="space-y-2 pt-2">
-                  <div className="flex items-center gap-2">
-                    <Input
-                      value={getPrivateUrl()}
-                      readOnly
-                      className="text-xs"
-                      placeholder={shareType === "private" ? "" : "Select private to see URL"}
-                    />
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => copyToClipboard(getPrivateUrl(), "Private link")}
-                      disabled={shareType !== "private"}
-                    >
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              </div>
+          {shareType === null ? (
+            <div className="flex items-center justify-center py-8">
+              <RefreshCw className="h-6 w-6 animate-spin mr-2" />
+              <span>Loading share options...</span>
             </div>
-
-            {/* Public Sharing Option */}
-            <div className="flex items-start space-x-3 p-3 rounded-lg border">
-              <RadioGroupItem value="public" id="public" className="mt-1" disabled={!isPublicSharingEnabled} />
-              <div className="flex-1 space-y-2">
-                <div className="flex items-center gap-2">
-                  <Globe className="h-4 w-4 text-muted-foreground" />
-                  <Label htmlFor="public" className="font-medium">
-                    Public (Anyone with link)
-                  </Label>
-                  {!isPublicSharingEnabled && (
-                    <Badge variant="secondary" className="text-xs">
-                      Disabled
-                    </Badge>
-                  )}
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Anyone with the link can view the dashboard without logging in.
-                </p>
-
-                {!isPublicSharingEnabled && (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <AlertCircle className="h-4 w-4" />
-                    <span>Public sharing is disabled for this tenant</span>
+          ) : (
+            <RadioGroup value={shareType} onValueChange={(value) => setShareType(value as "private" | "public")}>
+              <div className="flex items-start space-x-3 p-3 rounded-lg border">
+                <RadioGroupItem value="private" id="private" className="mt-1" />
+                <div className="flex-1 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Lock className="h-4 w-4 text-muted-foreground" />
+                    <Label htmlFor="private" className="font-medium">
+                      Private (Login Required)
+                    </Label>
                   </div>
-                )}
-
-                <div className="space-y-4 pt-2">
-                  {!publicShare ? (
-                    <div className="space-y-3">
-                      <div className="flex items-center space-x-2">
-                        <Switch
-                          id="expiration"
-                          checked={hasExpiration}
-                          onCheckedChange={setHasExpiration}
-                          disabled={shareType !== "public" || !isPublicSharingEnabled}
-                        />
-                        <Label htmlFor="expiration" className="text-sm">
-                          Set expiration date
-                        </Label>
-                      </div>
-
-                      {hasExpiration && (
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="justify-start text-left font-normal bg-transparent"
-                              disabled={shareType !== "public" || !isPublicSharingEnabled}
-                            >
-                              <CalendarIcon className="mr-2 h-4 w-4" />
-                              {expirationDate ? format(expirationDate, "PPP") : "Pick a date"}
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0">
-                            <Calendar
-                              mode="single"
-                              selected={expirationDate}
-                              onSelect={setExpirationDate}
-                              disabled={(date) => date < new Date()}
-                              initialFocus
-                            />
-                          </PopoverContent>
-                        </Popover>
-                      )}
-
+                  <p className="text-sm text-muted-foreground">
+                    Only authenticated users with access to this tenant can view the dashboard.
+                  </p>
+                  <div className="space-y-2 pt-2">
+                    <div className="flex items-center gap-2">
+                      <Input
+                        value={getPrivateUrl()}
+                        readOnly
+                        className="text-xs"
+                        placeholder={shareType === "private" ? "" : "Select private to see URL"}
+                      />
                       <Button
-                        onClick={createPublicShare}
-                        disabled={isLoading || shareType !== "public" || !isPublicSharingEnabled}
-                        className="w-full"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => copyToClipboard(getPrivateUrl(), "Private link")}
+                        disabled={shareType !== "private"}
                       >
-                        {isLoading ? (
-                          <>
-                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                            Creating...
-                          </>
-                        ) : (
-                          "Generate Public Link"
-                        )}
+                        <Copy className="h-4 w-4" />
                       </Button>
                     </div>
-                  ) : (
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2 text-sm text-green-600">
-                        <CheckCircle2 className="h-4 w-4" />
-                        <span>Public sharing is active</span>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label className="text-sm font-medium">Share Link</Label>
-                        <div className="flex items-center gap-2">
-                          <Input
-                            value={getPublicUrl()}
-                            readOnly
-                            className="text-xs"
-                            placeholder={shareType === "public" ? "" : "Select public to see URL"}
-                          />
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => copyToClipboard(getPublicUrl(), "Public link")}
-                            disabled={shareType !== "public"}
-                          >
-                            <Copy className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => window.open(getPublicUrl(), "_blank")}
-                            disabled={shareType !== "public"}
-                          >
-                            <ExternalLink className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-
-                      <Separator />
-
-                      <div className="flex items-center justify-between text-sm text-muted-foreground">
-                        <div className="flex items-center gap-1">
-                          <Eye className="h-4 w-4" />
-                          <span>{publicShare.view_count} views</span>
-                        </div>
-                        {publicShare.last_accessed_at && (
-                          <span>Last accessed {formatRelativeTime(publicShare.last_accessed_at)}</span>
-                        )}
-                      </div>
-
-                      {publicShare.expires_at && (
-                        <div className="text-sm text-muted-foreground">
-                          Expires on {format(new Date(publicShare.expires_at), "PPP")}
-                        </div>
-                      )}
-
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={regenerateShare}
-                          disabled={isLoading || shareType !== "public"}
-                          className="flex-1 bg-transparent"
-                        >
-                          <RefreshCw className="h-4 w-4 mr-2" />
-                          Regenerate
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={deleteShare}
-                          disabled={isLoading || shareType !== "public"}
-                          className="flex-1 text-destructive hover:text-destructive bg-transparent"
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Delete
-                        </Button>
-                      </div>
-                    </div>
-                  )}
+                  </div>
                 </div>
               </div>
-            </div>
-          </RadioGroup>
+
+              <div className="flex items-start space-x-3 p-3 rounded-lg border">
+                <RadioGroupItem value="public" id="public" className="mt-1" disabled={!isPublicSharingEnabled} />
+                <div className="flex-1 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Globe className="h-4 w-4 text-muted-foreground" />
+                    <Label htmlFor="public" className="font-medium">
+                      Public (Anyone with link)
+                    </Label>
+                    {!isPublicSharingEnabled && (
+                      <Badge variant="secondary" className="text-xs">
+                        Disabled
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Anyone with the link can view the dashboard without logging in.
+                  </p>
+
+                  {!isPublicSharingEnabled && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <AlertCircle className="h-4 w-4" />
+                      <span>Public sharing is disabled for this tenant</span>
+                    </div>
+                  )}
+
+                  <div className="space-y-4 pt-2">
+                    {!publicShare ? (
+                      <div className="space-y-3">
+                        <div className="flex items-center space-x-2">
+                          <Switch
+                            id="expiration"
+                            checked={hasExpiration}
+                            onCheckedChange={setHasExpiration}
+                            disabled={shareType !== "public" || !isPublicSharingEnabled}
+                          />
+                          <Label htmlFor="expiration" className="text-sm">
+                            Set expiration date
+                          </Label>
+                        </div>
+
+                        {hasExpiration && (
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="justify-start text-left font-normal bg-transparent"
+                                disabled={shareType !== "public" || !isPublicSharingEnabled}
+                              >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {expirationDate ? format(expirationDate, "PPP") : "Pick a date"}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0">
+                              <Calendar
+                                mode="single"
+                                selected={expirationDate}
+                                onSelect={setExpirationDate}
+                                disabled={(date) => date < new Date()}
+                                initialFocus
+                              />
+                            </PopoverContent>
+                          </Popover>
+                        )}
+
+                        <Button
+                          onClick={createPublicShare}
+                          disabled={isLoading || shareType !== "public" || !isPublicSharingEnabled}
+                          className="w-full"
+                        >
+                          {isLoading ? (
+                            <>
+                              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                              Creating...
+                            </>
+                          ) : (
+                            "Generate Public Link"
+                          )}
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2 text-sm text-green-600">
+                          <CheckCircle2 className="h-4 w-4" />
+                          <span>Public sharing is active</span>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium">Share Link</Label>
+                          <div className="flex items-center gap-2">
+                            <Input
+                              value={getPublicUrl()}
+                              readOnly
+                              className="text-xs"
+                              placeholder={shareType === "public" ? "" : "Select public to see URL"}
+                            />
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => copyToClipboard(getPublicUrl(), "Public link")}
+                              disabled={shareType !== "public"}
+                            >
+                              <Copy className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => window.open(getPublicUrl(), "_blank")}
+                              disabled={shareType !== "public"}
+                            >
+                              <ExternalLink className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+
+                        <Separator />
+
+                        <div className="flex items-center justify-between text-sm text-muted-foreground">
+                          <div className="flex items-center gap-1">
+                            <Eye className="h-4 w-4" />
+                            <span>{publicShare.view_count} views</span>
+                          </div>
+                          {publicShare.last_accessed_at && (
+                            <span>Last accessed {formatRelativeTime(publicShare.last_accessed_at)}</span>
+                          )}
+                        </div>
+
+                        {publicShare.expires_at && (
+                          <div className="text-sm text-muted-foreground">
+                            Expires on {format(new Date(publicShare.expires_at), "PPP")}
+                          </div>
+                        )}
+
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={regenerateShare}
+                            disabled={isLoading || shareType !== "public"}
+                            className="flex-1 bg-transparent"
+                          >
+                            <RefreshCw className="h-4 w-4 mr-2" />
+                            Regenerate
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={deleteShare}
+                            disabled={isLoading || shareType !== "public"}
+                            className="flex-1 text-destructive hover:text-destructive bg-transparent"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </RadioGroup>
+          )}
         </div>
       </DialogContent>
     </Dialog>
