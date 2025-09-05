@@ -6,7 +6,6 @@ export interface PublicAuthResult {
   tenant?: {
     tenant_id: string
     name: string
-    api_key: string
   }
   share?: {
     share_id: string
@@ -39,8 +38,7 @@ export async function validatePublicAccessByToken(shareToken: string): Promise<P
           tenant_id,
           tenants!inner(
             tenant_id,
-            name,
-            api_key
+            name
           )
         )
       `)
@@ -85,7 +83,6 @@ export async function validatePublicAccessByToken(shareToken: string): Promise<P
       tenant: {
         tenant_id: tenant.tenant_id,
         name: tenant.name,
-        api_key: tenant.api_key,
       },
       share: {
         share_id: shareData.share_id,
@@ -172,7 +169,6 @@ export async function validatePublicAccess(shareToken: string, apiKey: string): 
       tenant: {
         tenant_id: tenant.tenant_id,
         name: tenant.name,
-        api_key: tenant.api_key,
       },
       share: {
         share_id: shareData.share_id,

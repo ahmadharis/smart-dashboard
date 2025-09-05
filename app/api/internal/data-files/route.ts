@@ -80,6 +80,11 @@ export async function POST(request: NextRequest) {
       return createSecureErrorResponse("XML content is required", 400)
     }
 
+    if (xmlContent.length > 10 * 1024 * 1024) {
+      // 10MB limit for internal uploads
+      return createSecureErrorResponse("XML content too large", 413)
+    }
+
     if (!dataType || !validateDataType(dataType)) {
       return createSecureErrorResponse("Invalid data type", 400)
     }

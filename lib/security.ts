@@ -26,11 +26,18 @@ export async function validateApiKey(
 
     const { data, error } = await supabase
       .from("tenants")
-      .select("tenant_id")
+      .select("tenant_id, api_key")
       .eq("api_key", providedKey.trim())
       .single()
 
     if (error || !data) {
+      return {
+        isValid: false,
+        error: "Invalid API key",
+      }
+    }
+
+    if (providedKey.trim() !== data.api_key) {
       return {
         isValid: false,
         error: "Invalid API key",
@@ -42,7 +49,6 @@ export async function validateApiKey(
       tenantId: data.tenant_id,
     }
   } catch (error) {
-    console.error("API Key validation error:", error)
     return {
       isValid: false,
       error: "API key validation failed",
@@ -130,7 +136,14 @@ export function isValidUUID(uuid: string): boolean {
 }
 
 export function sanitizeString(input: string, maxLength = 255): string {
-  return input.trim().slice(0, maxLength)
+  if (!input || typeof input !== "string") {
+    return ""
+  }
+
+  return input
+    .trim()
+    .replace(/[<>'"&]/g, "")
+    .slice(0, maxLength)
 }
 
 export function validateEmail(email: string): boolean {
@@ -138,18 +151,10 @@ export function validateEmail(email: string): boolean {
   return emailRegex.test(email)
 }
 
-// CORS headers for internet-facing application
-export function setCorsHeaders(response: NextResponse): NextResponse {
-  response.headers.set("Access-Control-Allow-Origin", "*")
-  response.headers.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-  response.headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization, x-api-key")
-  response.headers.set("Access-Control-Max-Age", "86400")
-  return response
-}
-
 // Security error responses
 export function createSecurityErrorResponse(message: string, status = 401): NextResponse {
-  const response = NextResponse.json({ error: message }, { status })
+  const sanitizedMessage = status >= 500 ? "Internal server error" : message
+  const response = NextResponse.json({ error: sanitizedMessage }, { status })
   return setCorsHeaders(response)
 }
 
@@ -157,4 +162,16 @@ export function createSecurityErrorResponse(message: string, status = 401): Next
 export function createSecureResponse(data: any, status = 200): NextResponse {
   const response = NextResponse.json(data, { status })
   return setCorsHeaders(response)
+}
+
+export function setCorsHeaders(response: NextResponse): NextResponse {
+  response.headers.set("Access-Control-Allow-Origin", "*")
+  response.headers.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+  response.headers.set(
+    "Access-Control-Allow-Headers",
+    "Content-Type, Authorization, x-api-key, X-Tenant-Id, X-Dashboard-Id, X-Data-Type",
+  )
+  response.headers.set("Access-Control-Max-Age", "86400")
+
+  return response
 }

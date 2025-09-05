@@ -45,18 +45,21 @@ export async function OPTIONS() {
 }
 
 export async function POST(request: NextRequest) {
-  const validation = await validateUploadXmlApiKey(request)
-
-  if (!validation.isValid) {
-    return createSecureResponse(
-      {
-        error: validation.error,
-      },
-      401,
-    )
-  }
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
 
   try {
+    const validation = await validateUploadXmlApiKey(request)
+
+    if (!validation.isValid) {
+      return createSecureResponse(
+        {
+          error: validation.error,
+        },
+        401,
+      )
+    }
+
     const tenantId = validation.tenantId!
 
     // Get required parameters
@@ -90,8 +93,13 @@ export async function POST(request: NextRequest) {
     // Parse XML from request body
     const xmlData = await request.text()
 
-    if (!xmlData) {
+    if (!xmlData || xmlData.length === 0) {
       return createSecureResponse({ error: "No XML data provided" }, 400)
+    }
+
+    if (xmlData.length > 50 * 1024 * 1024) {
+      // 50MB limit
+      return createSecureResponse({ error: "XML data too large" }, 413)
     }
 
     const { data: transformedData, fieldOrder, message } = parseXMLToJSON(xmlData, type)
@@ -123,5 +131,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("API Error:", error)
     return createSecureResponse({ error: error instanceof Error ? error.message : "Internal server error" }, 500)
+  } finally {
+    clearTimeout(timeoutId)
   }
 }

@@ -20,7 +20,9 @@ export function parseXMLToJSON(xmlContent: string, dataType?: string): ParsedXML
     const sanitizedXML = xmlContent
       .replace(/<!DOCTYPE[^>]*>/gi, "") // Remove DOCTYPE declarations
       .replace(/<!ENTITY[^>]*>/gi, "") // Remove entity declarations
-    // Removed overly aggressive entity reference removal
+      .replace(/&[^;]+;/g, "") // Remove all entity references
+      .replace(/<\?xml[^>]*\?>/gi, "") // Remove XML processing instructions
+      .replace(/<!--[\s\S]*?-->/g, "") // Remove comments
 
     const fieldOrderMatch = sanitizedXML.match(/<row[^>]*>(.*?)<\/row>/s)
     if (!fieldOrderMatch) {
@@ -53,6 +55,8 @@ export function parseXMLToJSON(xmlContent: string, dataType?: string): ParsedXML
       parseAttributeValue: false, // Disable attribute parsing
       ignoreDeclaration: true, // Ignore XML declarations
       ignorePiTags: true, // Ignore processing instructions
+      stopNodes: ["script", "style"], // Block dangerous tags
+      isArray: () => false, // Prevent array confusion attacks
     })
 
     const result = parser.parse(sanitizedXML)

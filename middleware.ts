@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server"
 import { updateSession } from "@/lib/supabase/middleware"
 
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>()
+const publicRateLimitMap = new Map<string, { count: number; resetTime: number }>()
 
 function timingSafeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) return false
@@ -31,8 +32,36 @@ function checkRateLimit(ip: string, limit = 100, windowMs = 60000): boolean {
   return true
 }
 
+function checkPublicRateLimit(ip: string, limit = 20, windowMs = 60000): boolean {
+  const now = Date.now()
+  const key = `public_${ip}`
+  const record = publicRateLimitMap.get(key)
+
+  if (!record || now > record.resetTime) {
+    publicRateLimitMap.set(key, { count: 1, resetTime: now + windowMs })
+    return true
+  }
+
+  if (record.count >= limit) {
+    return false
+  }
+
+  record.count++
+  return true
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
+
+  const contentLength = request.headers.get("content-length")
+  if (contentLength) {
+    const size = Number.parseInt(contentLength, 10)
+    // 50MB limit for upload-xml, 10MB for other endpoints
+    const maxSize = pathname === "/api/upload-xml" ? 50 * 1024 * 1024 : 10 * 1024 * 1024
+    if (size > maxSize) {
+      return NextResponse.json({ error: "Request too large" }, { status: 413 })
+    }
+  }
 
   const supabaseResponse = await updateSession(request)
 
@@ -52,6 +81,13 @@ export async function middleware(request: NextRequest) {
     "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://*.supabase.co; object-src 'none'; base-uri 'self'; form-action 'self'",
   )
   supabaseResponse.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()")
+
+  if (pathname.startsWith("/api/public/") || pathname.startsWith("/api/upload-xml")) {
+    const clientIP = request.ip || request.headers.get("x-forwarded-for") || "unknown"
+    if (!checkPublicRateLimit(clientIP, 20, 60000)) {
+      return NextResponse.json({ error: "Too many requests" }, { status: 429 })
+    }
+  }
 
   if (pathname.startsWith("/api/internal/")) {
     const clientIP = request.ip || request.headers.get("x-forwarded-for") || "unknown"
@@ -78,16 +114,11 @@ export async function middleware(request: NextRequest) {
       const expectedKey = process.env.API_SECRET_KEY
 
       if (!expectedKey) {
-        console.error("[v0] API_SECRET_KEY not found in environment variables")
+        console.error("API_SECRET_KEY not found in environment variables")
         return NextResponse.json({ error: "Server configuration error" }, { status: 500 })
       }
 
       if (!apiKey || !timingSafeEqual(apiKey, expectedKey)) {
-        console.error("[v0] Unauthorized external request:", {
-          hasApiKey: !!apiKey,
-          pathname,
-          origin: request.headers.get("origin"),
-        })
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
       }
     }
@@ -123,6 +154,25 @@ export async function middleware(request: NextRequest) {
   if (!uuidRegex.test(tenantId)) {
     return NextResponse.redirect(new URL("/", request.url))
   }
+
+  const origin = request.headers.get("origin")
+  const allowedOrigins = [
+    process.env.NEXT_PUBLIC_APP_URL,
+    ...(process.env.NODE_ENV === "development" ? ["http://localhost:3000", "https://localhost:3000"] : []),
+    ...(process.env.VERCEL_URL ? [`https://${process.env.VERCEL_URL}`] : []),
+  ].filter(Boolean)
+
+  if (origin && allowedOrigins.includes(origin)) {
+    supabaseResponse.headers.set("Access-Control-Allow-Origin", origin)
+  } else if (process.env.NODE_ENV === "development") {
+    supabaseResponse.headers.set("Access-Control-Allow-Origin", "*")
+  }
+
+  supabaseResponse.headers.set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+  supabaseResponse.headers.set(
+    "Access-Control-Allow-Headers",
+    "Content-Type, Authorization, x-api-key, X-Tenant-Id, X-Data-Type, X-Dashboard-Id, X-Dashboard-Title",
+  )
 
   return supabaseResponse
 }
