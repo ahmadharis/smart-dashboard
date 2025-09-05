@@ -1,17 +1,48 @@
 import type { NextRequest } from "next/server"
 import { saveDataFile } from "@/lib/data-utils"
-import { validateSecurity, createSecurityErrorResponse, createSecureResponse, sanitizeString } from "@/lib/security"
+import { createSecureResponse, sanitizeString } from "@/lib/security"
 import { parseXMLToJSON } from "@/lib/xml-parser"
+import { createClient } from "@supabase/supabase-js"
+
+async function validateUploadXmlApiKey(
+  request: NextRequest,
+): Promise<{ isValid: boolean; tenantId?: string; error?: string }> {
+  const xApiKey = request.headers.get("x-api-key")
+  const authHeader = request.headers.get("authorization")
+  const providedKey = xApiKey || authHeader?.replace("Bearer ", "")
+
+  if (!providedKey) {
+    return { isValid: false, error: "API key is required" }
+  }
+
+  try {
+    const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+
+    const { data, error } = await supabase
+      .from("tenants")
+      .select("tenant_id")
+      .eq("api_key", providedKey.trim())
+      .single()
+
+    if (error || !data) {
+      return { isValid: false, error: "Invalid API key" }
+    }
+
+    return { isValid: true, tenantId: data.tenant_id }
+  } catch (error) {
+    return { isValid: false, error: "API key validation failed" }
+  }
+}
 
 export async function OPTIONS() {
   return createSecureResponse({})
 }
 
 export async function POST(request: NextRequest) {
-  const validation = await validateSecurity(request, true)
+  const validation = await validateUploadXmlApiKey(request)
 
   if (!validation.isValid) {
-    return createSecurityErrorResponse(validation.error!)
+    return createSecureResponse({ error: validation.error }, 401)
   }
 
   try {
