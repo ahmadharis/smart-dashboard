@@ -6,13 +6,22 @@ import { createClient } from "@supabase/supabase-js"
 
 async function validateUploadXmlApiKey(
   request: NextRequest,
-): Promise<{ isValid: boolean; tenantId?: string; error?: string }> {
+): Promise<{ isValid: boolean; tenantId?: string; error?: string; debugInfo?: any }> {
   const xApiKey = request.headers.get("x-api-key")
   const authHeader = request.headers.get("authorization")
   const providedKey = xApiKey || authHeader?.replace("Bearer ", "")
 
+  const debugInfo = {
+    hasXApiKey: !!xApiKey,
+    hasAuthHeader: !!authHeader,
+    providedKeyLength: providedKey?.length || 0,
+    providedKeyFirst8: providedKey?.substring(0, 8) || "none",
+    supabaseUrl: !!process.env.SUPABASE_URL,
+    supabaseServiceKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+  }
+
   if (!providedKey) {
-    return { isValid: false, error: "API key is required" }
+    return { isValid: false, error: "API key is required", debugInfo }
   }
 
   try {
@@ -20,17 +29,26 @@ async function validateUploadXmlApiKey(
 
     const { data, error } = await supabase
       .from("tenants")
-      .select("tenant_id")
+      .select("tenant_id, api_key")
       .eq("api_key", providedKey.trim())
       .single()
 
+    debugInfo.dbError = error?.message || null
+    debugInfo.dbDataFound = !!data
+    debugInfo.queryUsedKey = providedKey.trim()
+
     if (error || !data) {
-      return { isValid: false, error: "Invalid API key" }
+      const { data: allTenants } = await supabase.from("tenants").select("api_key").limit(10)
+
+      debugInfo.allApiKeysInDb = allTenants?.map((t) => t.api_key?.substring(0, 8)) || []
+
+      return { isValid: false, error: "Invalid API key", debugInfo }
     }
 
-    return { isValid: true, tenantId: data.tenant_id }
+    return { isValid: true, tenantId: data.tenant_id, debugInfo }
   } catch (error) {
-    return { isValid: false, error: "API key validation failed" }
+    debugInfo.catchError = error instanceof Error ? error.message : "Unknown error"
+    return { isValid: false, error: "API key validation failed", debugInfo }
   }
 }
 
@@ -42,7 +60,13 @@ export async function POST(request: NextRequest) {
   const validation = await validateUploadXmlApiKey(request)
 
   if (!validation.isValid) {
-    return createSecureResponse({ error: validation.error }, 401)
+    return createSecureResponse(
+      {
+        error: validation.error,
+        debug: validation.debugInfo,
+      },
+      401,
+    )
   }
 
   try {
