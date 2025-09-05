@@ -9,6 +9,7 @@ export async function OPTIONS() {
 
 export async function POST(request: NextRequest) {
   const validation = await validateSecurity(request, true)
+
   if (!validation.isValid) {
     return createSecurityErrorResponse(validation.error!)
   }
