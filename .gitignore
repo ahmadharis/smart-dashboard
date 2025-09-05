@@ -54,6 +54,7 @@ pnpm-lock.yaml
 *.swp
 *.swo
 *~
+*.code-workspace
 
 # OS generated files
 .DS_Store
