@@ -1,8 +1,6 @@
 # Smart Dashboard - Development Docker Compose
 # Optimized for development with hot reloading and fast startup
 
-version: '3.8'
-
 services:
   smart-dashboard-dev:
     build:
@@ -16,7 +14,7 @@ services:
       # Mount source code for hot reloading
       - .:/app
       - /app/node_modules  # Use container's node_modules
-      - /app/.next         # Use container's .next cache
+      - next_cache:/app/.next  # Use named volume for .next cache
     environment:
       - NODE_ENV=development
       - NEXT_TELEMETRY_DISABLED=1
@@ -28,7 +26,7 @@ services:
       - smart-dashboard-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3

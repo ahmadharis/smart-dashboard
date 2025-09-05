@@ -1,8 +1,6 @@
 # Smart Dashboard - Production Docker Compose
 # Optimized for production deployment with security and performance
 
-version: '3.8'
-
 services:
   smart-dashboard:
     build:

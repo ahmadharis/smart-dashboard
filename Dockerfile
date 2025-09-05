@@ -17,6 +17,7 @@ WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
+COPY pnpm-lock.yaml* ./
 
 # =============================================================================
 # Development Stage - Full development environment with hot reload
@@ -24,15 +25,22 @@ COPY package*.json ./
 FROM base AS development
 
 # Install all dependencies (including devDependencies)
-RUN npm ci
+# Use npm install if no lock file exists, otherwise use npm ci
+RUN if [ -f package-lock.json ]; then npm ci; \
+    elif [ -f pnpm-lock.yaml ]; then corepack enable && pnpm install; \
+    else npm install; fi
 
 # Create non-root user for security
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
-USER nextjs
 
-# Copy source code (will be overridden by volume mount in dev)
+# Copy source code and set permissions
 COPY --chown=nextjs:nodejs . .
+
+# Create .next directory with proper permissions
+RUN mkdir -p .next && chown -R nextjs:nodejs .next
+
+USER nextjs
 
 EXPOSE 3000
 
@@ -50,7 +58,9 @@ FROM base AS deps
 
 # Install production dependencies only
 ENV NODE_ENV=production
-RUN npm ci --only=production --omit=dev && npm cache clean --force
+RUN if [ -f package-lock.json ]; then npm ci --only=production --omit=dev && npm cache clean --force; \
+    elif [ -f pnpm-lock.yaml ]; then corepack enable && pnpm install --prod && pnpm store prune; \
+    else npm install --only=production && npm cache clean --force; fi
 
 # =============================================================================
 # Build Stage - Create optimized production build
@@ -58,7 +68,9 @@ RUN npm ci --only=production --omit=dev && npm cache clean --force
 FROM base AS builder
 
 # Install all dependencies for build process
-RUN npm ci
+RUN if [ -f package-lock.json ]; then npm ci; \
+    elif [ -f pnpm-lock.yaml ]; then corepack enable && pnpm install; \
+    else npm install; fi
 
 # Copy source code
 COPY . .
@@ -78,7 +90,7 @@ FROM node:18-alpine AS production
 WORKDIR /app
 
 # Install minimal system dependencies
-RUN apk add --no-cache dumb-init
+RUN apk add --no-cache dumb-init wget
 
 # Create non-root user
 RUN addgroup --system --gid 1001 nodejs
@@ -104,7 +116,7 @@ EXPOSE 3000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:3000/api/health || exit 1
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1
 
 # Use dumb-init to handle signals properly
 ENTRYPOINT ["dumb-init", "--"]
