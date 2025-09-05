@@ -245,20 +245,24 @@ export function ShareDialog({
                 <p className="text-sm text-muted-foreground">
                   Only authenticated users with access to this tenant can view the dashboard.
                 </p>
-                {shareType === "private" && (
-                  <div className="space-y-2 pt-2">
-                    <div className="flex items-center gap-2">
-                      <Input value={getPrivateUrl()} readOnly className="text-xs" />
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => copyToClipboard(getPrivateUrl(), "Private link")}
-                      >
-                        <Copy className="h-4 w-4" />
-                      </Button>
-                    </div>
+                <div className="space-y-2 pt-2">
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={getPrivateUrl()}
+                      readOnly
+                      className="text-xs"
+                      placeholder={shareType === "private" ? "" : "Select private to see URL"}
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => copyToClipboard(getPrivateUrl(), "Private link")}
+                      disabled={shareType !== "private"}
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
                   </div>
-                )}
+                </div>
               </div>
             </div>
 
@@ -269,7 +273,7 @@ export function ShareDialog({
                 <div className="flex items-center gap-2">
                   <Globe className="h-4 w-4 text-muted-foreground" />
                   <Label htmlFor="public" className="font-medium">
-                    Public (API Key Required)
+                    Public (Anyone with link)
                   </Label>
                   {!isPublicSharingEnabled && (
                     <Badge variant="secondary" className="text-xs">
@@ -278,7 +282,7 @@ export function ShareDialog({
                   )}
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Anyone with the link and API key can view the dashboard without logging in.
+                  Anyone with the link can view the dashboard without logging in.
                 </p>
 
                 {!isPublicSharingEnabled && (
@@ -288,134 +292,139 @@ export function ShareDialog({
                   </div>
                 )}
 
-                {shareType === "public" && isPublicSharingEnabled && (
-                  <div className="space-y-4 pt-2">
-                    {!publicShare ? (
-                      <div className="space-y-3">
-                        <div className="flex items-center space-x-2">
-                          <Switch id="expiration" checked={hasExpiration} onCheckedChange={setHasExpiration} />
-                          <Label htmlFor="expiration" className="text-sm">
-                            Set expiration date
-                          </Label>
-                        </div>
+                <div className="space-y-4 pt-2">
+                  {!publicShare ? (
+                    <div className="space-y-3">
+                      <div className="flex items-center space-x-2">
+                        <Switch
+                          id="expiration"
+                          checked={hasExpiration}
+                          onCheckedChange={setHasExpiration}
+                          disabled={shareType !== "public" || !isPublicSharingEnabled}
+                        />
+                        <Label htmlFor="expiration" className="text-sm">
+                          Set expiration date
+                        </Label>
+                      </div>
 
-                        {hasExpiration && (
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="justify-start text-left font-normal bg-transparent"
-                              >
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {expirationDate ? format(expirationDate, "PPP") : "Pick a date"}
-                              </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0">
-                              <Calendar
-                                mode="single"
-                                selected={expirationDate}
-                                onSelect={setExpirationDate}
-                                disabled={(date) => date < new Date()}
-                                initialFocus
-                              />
-                            </PopoverContent>
-                          </Popover>
+                      {hasExpiration && (
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="justify-start text-left font-normal bg-transparent"
+                              disabled={shareType !== "public" || !isPublicSharingEnabled}
+                            >
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              {expirationDate ? format(expirationDate, "PPP") : "Pick a date"}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0">
+                            <Calendar
+                              mode="single"
+                              selected={expirationDate}
+                              onSelect={setExpirationDate}
+                              disabled={(date) => date < new Date()}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      )}
+
+                      <Button
+                        onClick={createPublicShare}
+                        disabled={isLoading || shareType !== "public" || !isPublicSharingEnabled}
+                        className="w-full"
+                      >
+                        {isLoading ? (
+                          <>
+                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                            Creating...
+                          </>
+                        ) : (
+                          "Generate Public Link"
                         )}
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2 text-sm text-green-600">
+                        <CheckCircle2 className="h-4 w-4" />
+                        <span>Public sharing is active</span>
+                      </div>
 
-                        <Button onClick={createPublicShare} disabled={isLoading} className="w-full">
-                          {isLoading ? (
-                            <>
-                              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                              Creating...
-                            </>
-                          ) : (
-                            "Generate Public Link"
-                          )}
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">Share Link</Label>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            value={getPublicUrl()}
+                            readOnly
+                            className="text-xs"
+                            placeholder={shareType === "public" ? "" : "Select public to see URL"}
+                          />
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => copyToClipboard(getPublicUrl(), "Public link")}
+                            disabled={shareType !== "public"}
+                          >
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => window.open(getPublicUrl(), "_blank")}
+                            disabled={shareType !== "public"}
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+
+                      <Separator />
+
+                      <div className="flex items-center justify-between text-sm text-muted-foreground">
+                        <div className="flex items-center gap-1">
+                          <Eye className="h-4 w-4" />
+                          <span>{publicShare.view_count} views</span>
+                        </div>
+                        {publicShare.last_accessed_at && (
+                          <span>Last accessed {formatRelativeTime(publicShare.last_accessed_at)}</span>
+                        )}
+                      </div>
+
+                      {publicShare.expires_at && (
+                        <div className="text-sm text-muted-foreground">
+                          Expires on {format(new Date(publicShare.expires_at), "PPP")}
+                        </div>
+                      )}
+
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={regenerateShare}
+                          disabled={isLoading || shareType !== "public"}
+                          className="flex-1 bg-transparent"
+                        >
+                          <RefreshCw className="h-4 w-4 mr-2" />
+                          Regenerate
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={deleteShare}
+                          disabled={isLoading || shareType !== "public"}
+                          className="flex-1 text-destructive hover:text-destructive bg-transparent"
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Delete
                         </Button>
                       </div>
-                    ) : (
-                      <div className="space-y-3">
-                        <div className="flex items-center gap-2 text-sm text-green-600">
-                          <CheckCircle2 className="h-4 w-4" />
-                          <span>Public sharing is active</span>
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label className="text-sm font-medium">Share Link</Label>
-                          <div className="flex items-center gap-2">
-                            <Input value={getPublicUrl()} readOnly className="text-xs" />
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => copyToClipboard(getPublicUrl(), "Public link")}
-                            >
-                              <Copy className="h-4 w-4" />
-                            </Button>
-                            <Button size="sm" variant="outline" onClick={() => window.open(getPublicUrl(), "_blank")}>
-                              <ExternalLink className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label className="text-sm font-medium">API Key</Label>
-                          <div className="flex items-center gap-2">
-                            <Input value={tenantApiKey} readOnly type="password" className="text-xs" />
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => copyToClipboard(tenantApiKey, "API key")}
-                            >
-                              <Copy className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-
-                        <Separator />
-
-                        <div className="flex items-center justify-between text-sm text-muted-foreground">
-                          <div className="flex items-center gap-1">
-                            <Eye className="h-4 w-4" />
-                            <span>{publicShare.view_count} views</span>
-                          </div>
-                          {publicShare.last_accessed_at && (
-                            <span>Last accessed {formatRelativeTime(publicShare.last_accessed_at)}</span>
-                          )}
-                        </div>
-
-                        {publicShare.expires_at && (
-                          <div className="text-sm text-muted-foreground">
-                            Expires on {format(new Date(publicShare.expires_at), "PPP")}
-                          </div>
-                        )}
-
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={regenerateShare}
-                            disabled={isLoading}
-                            className="flex-1 bg-transparent"
-                          >
-                            <RefreshCw className="h-4 w-4 mr-2" />
-                            Regenerate
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={deleteShare}
-                            disabled={isLoading}
-                            className="flex-1 text-destructive hover:text-destructive bg-transparent"
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Delete
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </RadioGroup>
