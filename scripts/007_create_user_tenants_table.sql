@@ -2,7 +2,7 @@
 CREATE TABLE IF NOT EXISTS user_tenants (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  tenant_id UUID NOT NULL,
+  tenant_id UUID NOT NULL REFERENCES tenants(tenant_id) ON DELETE CASCADE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   

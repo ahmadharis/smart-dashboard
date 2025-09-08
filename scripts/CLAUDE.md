@@ -207,11 +207,17 @@ FOR ALL TO service_role USING (true);
 3. **Application Validation**: Every API call validates user-tenant access via `validateAuthAndTenant()`
 4. **Explicit Filtering**: APIs explicitly filter by `tenant_id` after validation
 
+**Why Service Role for APIs**:
+- **`auth.uid()` Resolution Issue**: `createServerComponentClient` in API routes cannot reliably resolve `auth.uid()` for RLS policies
+- **Session Context**: API routes don't have access to the same session context as Server Components
+- **RLS Policy Failure**: When `auth.uid()` returns `NULL`, RLS policies block all access
+
 **Benefits of This Approach**:
 - ✅ **Database-level protection** against direct access
-- ✅ **API flexibility** with service role bypass
+- ✅ **API flexibility** with service role bypass  
 - ✅ **Performance optimization** avoiding RLS overhead in APIs
 - ✅ **Defense in depth** with both RLS and application validation
+- ✅ **Reliable API operations** without session context dependencies
 
 ## Multi-Tenant Isolation Architecture
 
