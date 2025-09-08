@@ -283,10 +283,23 @@ X-RateLimit-Reset: 1640995200
 - Input sanitization and validation
 - Proper HTTP status codes
 
-### Database Patterns
-- Row-Level Security (RLS) policies
-- Tenant-scoped queries with `.eq('tenant_id', tenantId)`
-- Foreign key relationships maintain data integrity
-- Cascade deletes for tenant data cleanup
+### Database Patterns & Security
+
+**Hybrid RLS Architecture**:
+- **RLS Database Protection**: All tenant tables have RLS enabled (script 012)
+- **Service Role APIs**: Internal APIs use service role with bypass policies
+- **Application Validation**: Every API validates user-tenant access first
+- **Explicit Filtering**: Tenant-scoped queries with `.eq('tenant_id', tenantId)`
+
+**Security Layers**:
+1. **Database Level**: RLS policies prevent direct unauthorized access
+2. **Application Level**: `validateAuthAndTenant()` ensures proper tenant access
+3. **Query Level**: Explicit tenant filtering in all database operations
+
+**Key Benefits**:
+- ✅ **Defense in depth** with multiple security layers
+- ✅ **Performance optimized** with service role bypass
+- ✅ **Developer-friendly** with consistent validation patterns
+- ✅ **Audit-ready** with clear tenant isolation guarantees
 
 This API architecture ensures complete tenant isolation while providing flexible access patterns for different use cases.

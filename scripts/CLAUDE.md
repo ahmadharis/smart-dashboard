@@ -16,10 +16,9 @@ This directory contains SQL migration scripts that define the complete database 
 005_create_settings_table.sql       -- Tenant-specific settings
 006_create_user_profiles_table.sql  -- Extended user information
 007_create_user_tenants_table.sql   -- Multi-tenant access control
-009_add_api_key_to_tenants.sql      -- API key authentication
 010_create_public_dashboard_shares.sql  -- Public sharing
 011_add_public_sharing_setting.sql  -- Sharing configuration
-012_fix_data_files_unique_constraint.sql -- Data integrity fix
+012_enable_row_level_security.sql   -- Row-Level Security (RLS) policies
 ```
 
 ## Database Schema Overview
@@ -136,31 +135,16 @@ CREATE TABLE public_dashboard_shares (
 
 ## Row-Level Security (RLS)
 
-### Current RLS Implementation
+### RLS Implementation (Script 012)
 
-#### user_profiles
+**All tenant-scoped tables have RLS enabled with comprehensive policies**:
+
+#### Core RLS Policies
 ```sql
--- Users can only access their own profile
-CREATE POLICY "Users can access own profile" ON user_profiles
-FOR ALL USING (auth.uid()::text = user_id::text);
-```
-
-#### user_tenants  
-```sql
--- Users can only see their own tenant relationships
-CREATE POLICY "Users can access own tenant relationships" ON user_tenants
-FOR ALL USING (auth.uid()::text = user_id::text);
-```
-
-### Required RLS Policies (Recommended)
-
-**All tenant-scoped tables need RLS policies**:
-
-```sql
--- Tenants: Users can only access tenants they belong to
+-- Tenants: Users can only access tenants they are assigned to
 CREATE POLICY "Users can access assigned tenants" ON tenants
 FOR ALL USING (
-  id IN (
+  tenant_id IN (
     SELECT tenant_id FROM user_tenants 
     WHERE user_id = auth.uid()
   )
@@ -175,7 +159,7 @@ FOR ALL USING (
   )
 );
 
--- Data files: Tenant-scoped access
+-- Data Files: Tenant-scoped access
 CREATE POLICY "Users can access tenant data files" ON data_files
 FOR ALL USING (
   tenant_id IN (
@@ -183,7 +167,38 @@ FOR ALL USING (
     WHERE user_id = auth.uid()
   )
 );
+
+-- Settings: Tenant-scoped access
+CREATE POLICY "Users can access tenant settings" ON settings
+FOR ALL USING (
+  tenant_id IN (
+    SELECT tenant_id FROM user_tenants 
+    WHERE user_id = auth.uid()
+  )
+);
 ```
+
+#### Service Role Bypass Policies
+```sql
+-- Service role can access all data for API operations
+CREATE POLICY "Service role can access all [table]" ON [table]
+FOR ALL TO service_role USING (true);
+```
+
+### Hybrid Security Architecture
+
+**The system uses a sophisticated hybrid approach**:
+
+1. **RLS Database Protection**: All tenant-scoped tables have RLS enabled
+2. **Service Role APIs**: Internal APIs use service role with application-level validation
+3. **Application Validation**: Every API call validates user-tenant access via `validateAuthAndTenant()`
+4. **Explicit Filtering**: APIs explicitly filter by `tenant_id` after validation
+
+**Benefits of This Approach**:
+- ✅ **Database-level protection** against direct access
+- ✅ **API flexibility** with service role bypass
+- ✅ **Performance optimization** avoiding RLS overhead in APIs
+- ✅ **Defense in depth** with both RLS and application validation
 
 ## Multi-Tenant Isolation Architecture
 

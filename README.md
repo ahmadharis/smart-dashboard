@@ -109,16 +109,14 @@ scripts/004_create_data_files_table.sql
 scripts/005_create_settings_table.sql
 scripts/006_create_user_profiles_table.sql
 scripts/007_create_user_tenants_table.sql
-scripts/009_add_api_key_to_tenants.sql
 scripts/010_create_public_dashboard_shares.sql
 scripts/011_add_public_sharing_setting.sql
-scripts/012_fix_data_files_unique_constraint.sql
 
 -- Security Policies (CRITICAL - Required before production)
-scripts/013_enable_row_level_security.sql
+scripts/012_enable_row_level_security.sql
 ```
 
-> **⚠️ Security Notice**: The `013_enable_row_level_security.sql` script is **CRITICAL** for production deployment. Without it, users can access data from all tenants. Always run this script before going live.
+> **⚠️ Security Notice**: The `012_enable_row_level_security.sql` script is **CRITICAL** for production deployment. Without it, users can access data from all tenants. Always run this script before going live.
 
 ## 📡 External System Integration
 
