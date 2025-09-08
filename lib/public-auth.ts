@@ -47,8 +47,13 @@ export async function validatePublicAccessByToken(shareToken: string): Promise<P
       .single()
 
     if (shareError || !shareData) {
+      console.error("Share query error:", shareError)
+      console.error("Share data:", shareData)
+      console.error("Share token searched:", shareToken)
       return { isValid: false, error: "Invalid share token" }
     }
+    
+    console.log("Share data found:", shareData)
 
     // Check if share has expired
     if (shareData.expires_at && new Date(shareData.expires_at) < new Date()) {

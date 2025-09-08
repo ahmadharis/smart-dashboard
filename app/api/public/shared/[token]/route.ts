@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server"
 import { validatePublicAccessByToken } from "@/lib/public-auth"
-import { createClient } from "@/lib/supabase/server"
+import { createServiceClient } from "@/lib/supabase"
 import { createSecureResponse } from "@/lib/security"
 
 export async function OPTIONS() {
@@ -15,7 +15,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return createSecureResponse({ error: authResult.error || "Access denied" }, 403)
     }
 
-    const supabase = await createClient()
+    const supabase = createServiceClient()
 
     const { data: dashboard, error: dashboardError } = await supabase
       .from("dashboards")
