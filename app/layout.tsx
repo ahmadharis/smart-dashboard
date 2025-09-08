@@ -6,6 +6,9 @@ import { Toaster } from "@/components/ui/toaster"
 import { AuthProvider } from "@/components/auth-provider"
 import "./globals.css"
 
+// Validate environment variables at startup (server-side only)
+import "@/lib/env-validation"
+
 const inter = Inter({
   subsets: ["latin"],
   display: "swap",

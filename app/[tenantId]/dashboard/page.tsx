@@ -3,9 +3,9 @@ import { DashboardClient } from "@/components/dashboard-client"
 import { ProtectedRoute } from "@/components/protected-route"
 
 interface DashboardPageProps {
-  params: {
+  params: Promise<{
     tenantId: string
-  }
+  }>
 }
 
 function DashboardSkeleton() {
@@ -29,13 +29,15 @@ function DashboardSkeleton() {
   )
 }
 
-export default function DashboardPage({ params }: DashboardPageProps) {
+export default async function DashboardPage({ params }: DashboardPageProps) {
+  const { tenantId } = await params
+  
   return (
-    <ProtectedRoute tenantId={params.tenantId}>
+    <ProtectedRoute tenantId={tenantId}>
       <div className="min-h-screen bg-background">
         <div className="container mx-auto px-4 pt-4">
           <Suspense fallback={<DashboardSkeleton />}>
-            <DashboardClient tenantId={params.tenantId} />
+            <DashboardClient tenantId={tenantId} />
           </Suspense>
         </div>
       </div>

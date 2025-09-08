@@ -14,58 +14,121 @@ function timingSafeEqual(a: string, b: string): boolean {
   return result === 0
 }
 
-function checkRateLimit(ip: string, limit = 100, windowMs = 60000): boolean {
+function checkRateLimit(ip: string, limit = 100, windowMs = 60000): { allowed: boolean; headers: Record<string, string> } {
   const now = Date.now()
   const key = ip
   const record = rateLimitMap.get(key)
 
   if (!record || now > record.resetTime) {
     rateLimitMap.set(key, { count: 1, resetTime: now + windowMs })
-    return true
+    return {
+      allowed: true,
+      headers: {
+        'X-RateLimit-Limit': limit.toString(),
+        'X-RateLimit-Remaining': (limit - 1).toString(),
+        'X-RateLimit-Reset': Math.ceil((now + windowMs) / 1000).toString()
+      }
+    }
   }
 
   if (record.count >= limit) {
-    return false
+    return {
+      allowed: false,
+      headers: {
+        'X-RateLimit-Limit': limit.toString(),
+        'X-RateLimit-Remaining': '0',
+        'X-RateLimit-Reset': Math.ceil(record.resetTime / 1000).toString()
+      }
+    }
   }
 
   record.count++
-  return true
+  return {
+    allowed: true,
+    headers: {
+      'X-RateLimit-Limit': limit.toString(),
+      'X-RateLimit-Remaining': (limit - record.count).toString(),
+      'X-RateLimit-Reset': Math.ceil(record.resetTime / 1000).toString()
+    }
+  }
 }
 
-function checkPublicRateLimit(ip: string, limit = 20, windowMs = 60000): boolean {
+function checkPublicRateLimit(ip: string, limit = 20, windowMs = 60000): { allowed: boolean; headers: Record<string, string> } {
   const now = Date.now()
   const key = `public_${ip}`
   const record = publicRateLimitMap.get(key)
 
   if (!record || now > record.resetTime) {
     publicRateLimitMap.set(key, { count: 1, resetTime: now + windowMs })
-    return true
+    return {
+      allowed: true,
+      headers: {
+        'X-RateLimit-Limit': limit.toString(),
+        'X-RateLimit-Remaining': (limit - 1).toString(),
+        'X-RateLimit-Reset': Math.ceil((now + windowMs) / 1000).toString()
+      }
+    }
   }
 
   if (record.count >= limit) {
-    return false
+    return {
+      allowed: false,
+      headers: {
+        'X-RateLimit-Limit': limit.toString(),
+        'X-RateLimit-Remaining': '0',
+        'X-RateLimit-Reset': Math.ceil(record.resetTime / 1000).toString()
+      }
+    }
   }
 
   record.count++
-  return true
+  return {
+    allowed: true,
+    headers: {
+      'X-RateLimit-Limit': limit.toString(),
+      'X-RateLimit-Remaining': (limit - record.count).toString(),
+      'X-RateLimit-Reset': Math.ceil(record.resetTime / 1000).toString()
+    }
+  }
 }
 
-function checkUploadXmlRateLimit(ip: string, limit = 100, windowMs = 60000): boolean {
+function checkUploadXmlRateLimit(ip: string, limit = 100, windowMs = 60000): { allowed: boolean; headers: Record<string, string> } {
   const now = Date.now()
   const key = `upload_xml_${ip}`
   const record = publicRateLimitMap.get(key)
 
   if (!record || now > record.resetTime) {
     publicRateLimitMap.set(key, { count: 1, resetTime: now + windowMs })
-    return true
+    return {
+      allowed: true,
+      headers: {
+        'X-RateLimit-Limit': limit.toString(),
+        'X-RateLimit-Remaining': (limit - 1).toString(),
+        'X-RateLimit-Reset': Math.ceil((now + windowMs) / 1000).toString()
+      }
+    }
   }
 
   if (record.count >= limit) {
-    return false
+    return {
+      allowed: false,
+      headers: {
+        'X-RateLimit-Limit': limit.toString(),
+        'X-RateLimit-Remaining': '0',
+        'X-RateLimit-Reset': Math.ceil(record.resetTime / 1000).toString()
+      }
+    }
   }
 
   record.count++
-  return true
+  return {
+    allowed: true,
+    headers: {
+      'X-RateLimit-Limit': limit.toString(),
+      'X-RateLimit-Remaining': (limit - record.count).toString(),
+      'X-RateLimit-Reset': Math.ceil(record.resetTime / 1000).toString()
+    }
+  }
 }
 
 export async function middleware(request: NextRequest) {
@@ -94,55 +157,82 @@ export async function middleware(request: NextRequest) {
   supabaseResponse.headers.set("Referrer-Policy", "strict-origin-when-cross-origin")
   supabaseResponse.headers.set("X-XSS-Protection", "1; mode=block")
   supabaseResponse.headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
-  supabaseResponse.headers.set(
-    "Content-Security-Policy",
-    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://*.supabase.co; object-src 'none'; base-uri 'self'; form-action 'self'",
-  )
+  // Content Security Policy - Allow Next.js to function properly
+  const isDevelopment = process.env.NODE_ENV === "development"
+  const cspPolicy = isDevelopment 
+    ? // Development: More permissive for hot reload and debugging
+      "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://*.supabase.co ws: wss:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';"
+    : // Production: More secure but still allowing Next.js functionality
+      "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://*.supabase.co; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';"
+  
+  supabaseResponse.headers.set("Content-Security-Policy", cspPolicy)
   supabaseResponse.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()")
 
   if (pathname.startsWith("/api/upload-xml")) {
     const clientIP = request.ip || request.headers.get("x-forwarded-for") || "unknown"
-    if (!checkUploadXmlRateLimit(clientIP, 100, 60000)) {
-      return NextResponse.json({ error: "Too many requests" }, { status: 429 })
+    const rateLimitResult = checkUploadXmlRateLimit(clientIP, 100, 60000)
+    
+    // Add rate limit headers
+    Object.entries(rateLimitResult.headers).forEach(([key, value]) => {
+      supabaseResponse.headers.set(key, value)
+    })
+    
+    if (!rateLimitResult.allowed) {
+      return NextResponse.json({ error: "Too many requests" }, { status: 429, headers: rateLimitResult.headers })
     }
   } else if (pathname.startsWith("/api/public/")) {
     const clientIP = request.ip || request.headers.get("x-forwarded-for") || "unknown"
-    if (!checkPublicRateLimit(clientIP, 20, 60000)) {
-      return NextResponse.json({ error: "Too many requests" }, { status: 429 })
+    const rateLimitResult = checkPublicRateLimit(clientIP, 20, 60000)
+    
+    // Add rate limit headers
+    Object.entries(rateLimitResult.headers).forEach(([key, value]) => {
+      supabaseResponse.headers.set(key, value)
+    })
+    
+    if (!rateLimitResult.allowed) {
+      return NextResponse.json({ error: "Too many requests" }, { status: 429, headers: rateLimitResult.headers })
     }
   }
 
   if (pathname.startsWith("/api/internal/")) {
     const clientIP = request.ip || request.headers.get("x-forwarded-for") || "unknown"
-    if (!checkRateLimit(clientIP, 50, 60000)) {
-      return NextResponse.json({ error: "Too many requests" }, { status: 429 })
+    const rateLimitResult = checkRateLimit(clientIP, 50, 60000)
+    
+    // Add rate limit headers
+    Object.entries(rateLimitResult.headers).forEach(([key, value]) => {
+      supabaseResponse.headers.set(key, value)
+    })
+    
+    if (!rateLimitResult.allowed) {
+      return NextResponse.json({ error: "Too many requests" }, { status: 429, headers: rateLimitResult.headers })
     }
 
     const origin = request.headers.get("origin")
     const referer = request.headers.get("referer")
     const host = request.headers.get("host")
 
-    const allowedOrigins = [
-      `https://${host}`,
-      `http://${host}`,
-      ...(process.env.NODE_ENV === "development" ? ["http://localhost:3000", "https://localhost:3000"] : []),
-      ...(process.env.VERCEL_URL ? [`https://${process.env.VERCEL_URL}`] : []),
-    ]
-
     const requestOrigin = origin || (referer ? new URL(referer).origin : null)
-    const isSameOrigin = requestOrigin && allowedOrigins.some((allowed) => requestOrigin === allowed)
+    
+    // In development, allow all origins for internal APIs
+    if (process.env.NODE_ENV === "development") {
+      // Development mode - no CORS restrictions
+    } else {
+      // Production: strict same-origin policy for internal APIs
+      const envAllowedOrigins = process.env.ALLOWED_ORIGINS?.split(',').map(o => o.trim()).filter(Boolean) || []
+      
+      const allowedOrigins = [
+        `https://${host}`,
+        `http://${host}`,
+        ...envAllowedOrigins,
+        ...(process.env.VERCEL_URL ? [`https://${process.env.VERCEL_URL}`] : []),
+      ]
 
-    if (!isSameOrigin) {
-      const apiKey = request.headers.get("x-api-key") || request.nextUrl.searchParams.get("api_key")
-      const expectedKey = process.env.API_SECRET_KEY
+      const isSameOrigin = requestOrigin && allowedOrigins.some((allowed) => requestOrigin === allowed)
 
-      if (!expectedKey) {
-        console.error("API_SECRET_KEY not found in environment variables")
-        return NextResponse.json({ error: "Server configuration error" }, { status: 500 })
-      }
-
-      if (!apiKey || !timingSafeEqual(apiKey, expectedKey)) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      if (!isSameOrigin) {
+        // Internal APIs require same-origin requests only in production
+        // External systems should use the upload-xml endpoint with tenant API keys
+        return NextResponse.json({ error: "Internal APIs require same-origin requests. Use upload-xml for external integrations." }, { status: 403 })
       }
     }
 
@@ -179,16 +269,29 @@ export async function middleware(request: NextRequest) {
   }
 
   const origin = request.headers.get("origin")
-  const allowedOrigins = [
-    process.env.NEXT_PUBLIC_APP_URL,
-    ...(process.env.NODE_ENV === "development" ? ["http://localhost:3000", "https://localhost:3000"] : []),
-    ...(process.env.VERCEL_URL ? [`https://${process.env.VERCEL_URL}`] : []),
-  ].filter(Boolean)
+  
+  // In development, allow all origins for easier development
+  if (process.env.NODE_ENV === "development") {
+    if (origin) {
+      supabaseResponse.headers.set("Access-Control-Allow-Origin", origin)
+    } else {
+      supabaseResponse.headers.set("Access-Control-Allow-Origin", "*")
+    }
+  } else {
+    // Production: Parse allowed origins from environment variable
+    const envAllowedOrigins = process.env.ALLOWED_ORIGINS?.split(',').map(o => o.trim()).filter(Boolean) || []
+    
+    const allowedOrigins = [
+      `https://${request.headers.get("host")}`,
+      `http://${request.headers.get("host")}`,
+      process.env.NEXT_PUBLIC_APP_URL,
+      ...envAllowedOrigins,
+      ...(process.env.VERCEL_URL ? [`https://${process.env.VERCEL_URL}`] : []),
+    ].filter(Boolean)
 
-  if (origin && allowedOrigins.includes(origin)) {
-    supabaseResponse.headers.set("Access-Control-Allow-Origin", origin)
-  } else if (process.env.NODE_ENV === "development") {
-    supabaseResponse.headers.set("Access-Control-Allow-Origin", "*")
+    if (origin && allowedOrigins.includes(origin)) {
+      supabaseResponse.headers.set("Access-Control-Allow-Origin", origin)
+    }
   }
 
   supabaseResponse.headers.set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")

@@ -2,14 +2,16 @@ import { Navigation } from "@/components/navigation"
 import { ProtectedRoute } from "@/components/protected-route"
 
 interface ApiDocsPageProps {
-  params: {
+  params: Promise<{
     tenantId: string
-  }
+  }>
 }
 
-export default function ApiDocsPage({ params }: ApiDocsPageProps) {
+export default async function ApiDocsPage({ params }: ApiDocsPageProps) {
+  const { tenantId } = await params
+  
   return (
-    <ProtectedRoute tenantId={params.tenantId}>
+    <ProtectedRoute tenantId={tenantId}>
       <div className="min-h-screen bg-background">
         <Navigation />
         <div className="container mx-auto px-4 py-16">
@@ -33,7 +35,7 @@ export default function ApiDocsPage({ params }: ApiDocsPageProps) {
                   <code>{`curl -X POST "https://yourdomain.com/api/upload-xml" \\
 -H "Content-Type: application/xml" \\
 -H "x-api-key: <apikey>" \\
--H "X-Tenant-Id: ${params.tenantId}" \\
+-H "X-Tenant-Id: ${tenantId}" \\
 -H "X-Data-Type: Sales" \\
 -H "X-Dashboard-Title: My Sales Dashboard" \\
 -d '<resultset columns="2" rows="2">
@@ -103,7 +105,7 @@ export default function ApiDocsPage({ params }: ApiDocsPageProps) {
                           </span>
                         </td>
                         <td className="py-2">
-                          Tenant ID for data isolation. Must be provided for all API calls (current: {params.tenantId})
+                          Tenant ID for data isolation. Must be provided for all API calls (current: {tenantId})
                         </td>
                       </tr>
                       <tr className="border-b">

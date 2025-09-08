@@ -98,10 +98,10 @@ PORT=3000
 
 ### Database Setup
 
-Execute the SQL migration scripts in your Supabase dashboard:
+Execute the SQL migration scripts in your Supabase dashboard in this exact order:
 
 ```sql
--- Run these files in order:
+-- Core Schema (Required)
 scripts/001_create_tenants_table.sql
 scripts/002_create_users_table.sql
 scripts/003_create_dashboards_table.sql
@@ -113,7 +113,12 @@ scripts/009_add_api_key_to_tenants.sql
 scripts/010_create_public_dashboard_shares.sql
 scripts/011_add_public_sharing_setting.sql
 scripts/012_fix_data_files_unique_constraint.sql
+
+-- Security Policies (CRITICAL - Required before production)
+scripts/013_enable_row_level_security.sql
 ```
+
+> **⚠️ Security Notice**: The `013_enable_row_level_security.sql` script is **CRITICAL** for production deployment. Without it, users can access data from all tenants. Always run this script before going live.
 
 ## 📡 External System Integration
 
@@ -218,7 +223,7 @@ X-Tenant-ID: <tenant_id>
 - **Frontend**: Next.js 15.5.2, React 19, TypeScript
 - **UI**: Tailwind CSS, Radix UI components
 - **Backend**: Next.js API routes, Supabase
-- **Database**: PostgreSQL with Row-Level Security (RLS)
+- **Database**: PostgreSQL
 - **Auth**: Supabase Auth with JWT tokens
 - **Deployment**: Docker, Vercel ready
 

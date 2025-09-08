@@ -38,12 +38,13 @@ interface ShareInfo {
 }
 
 interface PublicDashboardPageProps {
-  params: {
+  params: Promise<{
     token: string
-  }
+  }>
 }
 
 export default function PublicDashboardPage({ params }: PublicDashboardPageProps) {
+  const [token, setToken] = useState<string | null>(null)
   const [dashboard, setDashboard] = useState<Dashboard | null>(null)
   const [tenant, setTenant] = useState<Tenant | null>(null)
   const [shareInfo, setShareInfo] = useState<ShareInfo | null>(null)
@@ -53,15 +54,25 @@ export default function PublicDashboardPage({ params }: PublicDashboardPageProps
   const { toast } = useToast()
 
   useEffect(() => {
-    loadDashboardData()
-  }, [params.token])
+    const loadToken = async () => {
+      const resolvedParams = await params
+      setToken(resolvedParams.token)
+    }
+    loadToken()
+  }, [])
+
+  useEffect(() => {
+    if (token) {
+      loadDashboardData()
+    }
+  }, [token])
 
   const loadDashboardData = async () => {
     setIsLoading(true)
     setError(null)
 
     try {
-      const response = await fetch(`/api/public/shared/${params.token}`)
+      const response = await fetch(`/api/public/shared/${token}`)
 
       if (!response.ok) {
         const errorData = await response.json()
@@ -84,7 +95,7 @@ export default function PublicDashboardPage({ params }: PublicDashboardPageProps
 
   const fetchDataFiles = async () => {
     try {
-      const response = await fetch(`/api/public/shared/${params.token}/data-files`)
+      const response = await fetch(`/api/public/shared/${token}/data-files`)
 
       if (!response.ok) {
         throw new Error("Failed to fetch data files")
@@ -214,7 +225,7 @@ export default function PublicDashboardPage({ params }: PublicDashboardPageProps
                 <Badge variant="outline" className="text-xs">
                   {dataFiles.length} Dataset{dataFiles.length !== 1 ? "s" : ""}
                 </Badge>
-                <Link href={`/shared/${params.token}/tv-mode`}>
+                <Link href={`/shared/${token}/tv-mode`}>
                   <Button variant="outline" size="sm" className="transition-all duration-200 bg-transparent">
                     <Tv className="h-4 w-4 sm:mr-2" />
                     <span className="hidden sm:inline">TV Mode</span>

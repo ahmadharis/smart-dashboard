@@ -2,9 +2,9 @@ import { Suspense } from "react"
 import { PublicTVModeClient } from "@/components/public-tv-mode-client"
 
 interface PublicTVModePageProps {
-  params: {
+  params: Promise<{
     token: string
-  }
+  }>
 }
 
 function TVModeSkeleton() {
@@ -18,11 +18,13 @@ function TVModeSkeleton() {
   )
 }
 
-export default function PublicTVModePage({ params }: PublicTVModePageProps) {
+export default async function PublicTVModePage({ params }: PublicTVModePageProps) {
+  const { token } = await params
+  
   return (
     <div className="min-h-screen bg-background">
       <Suspense fallback={<TVModeSkeleton />}>
-        <PublicTVModeClient token={params.token} />
+        <PublicTVModeClient token={token} />
       </Suspense>
     </div>
   )

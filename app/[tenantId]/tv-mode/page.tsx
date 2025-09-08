@@ -2,12 +2,12 @@ import { Suspense } from "react"
 import { TVModeClient } from "@/components/tv-mode-client"
 
 interface TVModePageProps {
-  params: {
+  params: Promise<{
     tenantId: string
-  }
-  searchParams: {
+  }>
+  searchParams: Promise<{
     dashboardId?: string
-  }
+  }>
 }
 
 function TVModeSkeleton() {
@@ -21,11 +21,14 @@ function TVModeSkeleton() {
   )
 }
 
-export default function TVModePage({ params, searchParams }: TVModePageProps) {
+export default async function TVModePage({ params, searchParams }: TVModePageProps) {
+  const { tenantId } = await params
+  const { dashboardId } = await searchParams
+  
   return (
     <div className="min-h-screen bg-background">
       <Suspense fallback={<TVModeSkeleton />}>
-        <TVModeClient tenantId={params.tenantId} dashboardId={searchParams.dashboardId} />
+        <TVModeClient tenantId={tenantId} dashboardId={dashboardId} />
       </Suspense>
     </div>
   )

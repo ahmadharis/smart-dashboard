@@ -7,9 +7,10 @@ export async function OPTIONS() {
   return createSecureResponse({})
 }
 
-export async function GET(request: NextRequest, { params }: { params: { token: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ token: string }> }) {
   try {
-    const authResult = await validatePublicAccessByToken(params.token)
+    const { token } = await params
+    const authResult = await validatePublicAccessByToken(token)
     if (!authResult.isValid || !authResult.share || !authResult.tenant) {
       return createSecureResponse({ error: authResult.error || "Access denied" }, 403)
     }

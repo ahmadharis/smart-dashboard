@@ -3,14 +3,16 @@ import { FileManagementClient } from "@/components/file-management-client"
 import { ProtectedRoute } from "@/components/protected-route"
 
 interface ManagePageProps {
-  params: {
+  params: Promise<{
     tenantId: string
-  }
+  }>
 }
 
-export default function ManagePage({ params }: ManagePageProps) {
+export default async function ManagePage({ params }: ManagePageProps) {
+  const { tenantId } = await params
+  
   return (
-    <ProtectedRoute tenantId={params.tenantId}>
+    <ProtectedRoute tenantId={tenantId}>
       <div className="min-h-screen bg-background">
         <Navigation />
         <div className="container mx-auto px-4 py-8">
@@ -19,7 +21,7 @@ export default function ManagePage({ params }: ManagePageProps) {
             <p className="text-muted-foreground text-lg">Add new data files or remove existing ones</p>
           </div>
 
-          <FileManagementClient tenantId={params.tenantId} />
+          <FileManagementClient tenantId={tenantId} />
         </div>
       </div>
     </ProtectedRoute>

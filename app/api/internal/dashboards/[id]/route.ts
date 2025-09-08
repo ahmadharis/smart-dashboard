@@ -4,7 +4,8 @@ import { createServiceClient } from "@/lib/supabase"
 
 const supabase = createServiceClient()
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   try {
     const authResult = await validateAuthAndTenant(request, true)
     if (!authResult.isValid || !authResult.tenantId) {
@@ -22,7 +23,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     const { data, error } = await supabase
       .from("dashboards")
       .update(dashboardData)
-      .eq("id", params.id)
+      .eq("id", id)
       .eq("tenant_id", tenantId)
       .select()
       .single()
@@ -43,7 +44,8 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   try {
     const authResult = await validateAuthAndTenant(request, true)
     if (!authResult.isValid || !authResult.tenantId) {
@@ -52,7 +54,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
 
     const tenantId = authResult.tenantId
 
-    const { error } = await supabase.from("dashboards").delete().eq("id", params.id).eq("tenant_id", tenantId)
+    const { error } = await supabase.from("dashboards").delete().eq("id", id).eq("tenant_id", tenantId)
 
     if (error) {
       console.error("❌ Database error:", error)

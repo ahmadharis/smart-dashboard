@@ -6,13 +6,13 @@ import Link from "next/link"
 import { ProtectedRoute } from "@/components/protected-route"
 
 interface HomePageProps {
-  params: {
+  params: Promise<{
     tenantId: string
-  }
+  }>
 }
 
-export default function TenantHomePage({ params }: HomePageProps) {
-  const { tenantId } = params
+export default async function TenantHomePage({ params }: HomePageProps) {
+  const { tenantId } = await params
 
   return (
     <ProtectedRoute tenantId={tenantId}>
