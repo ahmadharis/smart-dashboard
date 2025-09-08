@@ -30,16 +30,17 @@ export async function validatePublicAccessByToken(shareToken: string): Promise<P
       .select(`
         share_id,
         dashboard_id,
+        tenant_id,
         share_token,
         expires_at,
         view_count,
         dashboards!inner(
           id,
+          title
+        ),
+        tenants!inner(
           tenant_id,
-          tenants!inner(
-            tenant_id,
-            name
-          )
+          name
         )
       `)
       .eq("share_token", shareToken)
@@ -55,7 +56,7 @@ export async function validatePublicAccessByToken(shareToken: string): Promise<P
     }
 
     // Get tenant info
-    const tenant = shareData.dashboards.tenants
+    const tenant = shareData.tenants
 
     // Check if tenant allows public sharing
     const { data: settingData } = await supabase
@@ -112,17 +113,18 @@ export async function validatePublicAccess(shareToken: string, apiKey: string): 
       .select(`
         share_id,
         dashboard_id,
+        tenant_id,
         share_token,
         expires_at,
         view_count,
         dashboards!inner(
-          dashboard_id,
+          id,
+          title
+        ),
+        tenants!inner(
           tenant_id,
-          tenants!inner(
-            tenant_id,
-            name,
-            api_key
-          )
+          name,
+          api_key
         )
       `)
       .eq("share_token", shareToken)
@@ -138,7 +140,7 @@ export async function validatePublicAccess(shareToken: string, apiKey: string): 
     }
 
     // Validate API key matches tenant's API key
-    const tenant = shareData.dashboards.tenants
+    const tenant = shareData.tenants
     if (tenant.api_key !== apiKey) {
       return { isValid: false, error: "Invalid API key" }
     }
