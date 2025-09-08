@@ -207,10 +207,12 @@ FOR ALL TO service_role USING (true);
 3. **Application Validation**: Every API call validates user-tenant access via `validateAuthAndTenant()`
 4. **Explicit Filtering**: APIs explicitly filter by `tenant_id` after validation
 
-**Why Service Role for APIs**:
+**Why Service Role for APIs and Public Sharing**:
 - **`auth.uid()` Resolution Issue**: `createServerComponentClient` in API routes cannot reliably resolve `auth.uid()` for RLS policies
 - **Session Context**: API routes don't have access to the same session context as Server Components
 - **RLS Policy Failure**: When `auth.uid()` returns `NULL`, RLS policies block all access
+- **Public Share Access**: Anonymous users need access to public shares without authentication
+- **Complex JOIN Queries**: Public share validation involves multi-table JOINs that would be complex with RLS
 
 **Benefits of This Approach**:
 - ✅ **Database-level protection** against direct access

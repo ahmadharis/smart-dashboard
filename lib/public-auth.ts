@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server"
+import { createServiceClient } from "@/lib/supabase"
 
 export interface PublicAuthResult {
   isValid: boolean
@@ -22,7 +22,7 @@ export async function validatePublicAccessByToken(shareToken: string): Promise<P
       return { isValid: false, error: "Share token is required" }
     }
 
-    const supabase = await createClient()
+    const supabase = createServiceClient()
 
     // Get share record with dashboard and tenant info
     const { data: shareData, error: shareError } = await supabase
@@ -104,7 +104,7 @@ export async function validatePublicAccess(shareToken: string, apiKey: string): 
       return { isValid: false, error: "Share token and API key are required" }
     }
 
-    const supabase = await createClient()
+    const supabase = createServiceClient()
 
     // Get share record with dashboard and tenant info
     const { data: shareData, error: shareError } = await supabase
