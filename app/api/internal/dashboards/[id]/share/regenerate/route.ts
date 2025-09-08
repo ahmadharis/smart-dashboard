@@ -18,8 +18,8 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     // Verify dashboard belongs to tenant
     const { data: dashboard, error: dashboardError } = await supabase
       .from("dashboards")
-      .select("dashboard_id")
-      .eq("dashboard_id", dashboardId)
+      .select("id")
+      .eq("id", dashboardId)
       .eq("tenant_id", tenantId)
       .single()
 

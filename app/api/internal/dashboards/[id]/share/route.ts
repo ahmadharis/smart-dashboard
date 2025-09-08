@@ -91,6 +91,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       .from("public_dashboard_shares")
       .upsert({
         dashboard_id: dashboardId,
+        tenant_id: tenantId,
         share_token: shareToken,
         expires_at: expires_at || null,
         view_count: 0,

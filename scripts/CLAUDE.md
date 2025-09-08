@@ -121,15 +121,19 @@ CREATE TABLE settings (
 ```
 
 #### public_dashboard_shares
-**Purpose**: Token-based public dashboard sharing
+**Purpose**: Token-based public dashboard sharing with tenant isolation
 ```sql
 CREATE TABLE public_dashboard_shares (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  share_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   dashboard_id UUID NOT NULL REFERENCES dashboards(id) ON DELETE CASCADE,
-  tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  token TEXT UNIQUE NOT NULL,
-  expires_at TIMESTAMP WITH TIME ZONE,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  tenant_id UUID NOT NULL REFERENCES tenants(tenant_id) ON DELETE CASCADE,
+  share_token VARCHAR(64) NOT NULL UNIQUE,
+  expires_at TIMESTAMP WITH TIME ZONE NULL,
+  view_count INTEGER DEFAULT 0,
+  last_accessed_at TIMESTAMP WITH TIME ZONE NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(dashboard_id)
 );
 ```
 
@@ -170,6 +174,15 @@ FOR ALL USING (
 
 -- Settings: Tenant-scoped access
 CREATE POLICY "Users can access tenant settings" ON settings
+FOR ALL USING (
+  tenant_id IN (
+    SELECT tenant_id FROM user_tenants 
+    WHERE user_id = auth.uid()
+  )
+);
+
+-- Public Dashboard Shares: Users can only manage shares for their tenant dashboards
+CREATE POLICY "Users can manage tenant dashboard shares" ON public_dashboard_shares
 FOR ALL USING (
   tenant_id IN (
     SELECT tenant_id FROM user_tenants 
