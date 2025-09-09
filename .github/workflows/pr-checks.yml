@@ -27,4 +27,12 @@ jobs:
         run: npm run test:phase1:validation
 
       - name: Build validation
+        env:
+          # Mock environment variables for public repo builds (100+ char requirement)
+          NEXT_PUBLIC_SUPABASE_URL: https://mock.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: mock-anon-key-for-build-that-is-over-one-hundred-characters-long-to-satisfy-validation-requirements-in-github-actions
+          SUPABASE_SERVICE_ROLE_KEY: mock-service-key-for-build-that-is-over-one-hundred-characters-long-to-satisfy-validation-requirements-in-github-actions
+          SUPABASE_URL: https://mock.supabase.co
+          SUPABASE_ANON_KEY: mock-anon-key-for-build-that-is-over-one-hundred-characters-long-to-satisfy-validation-requirements-in-github-actions
+          NODE_ENV: production
         run: npm run build

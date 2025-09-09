@@ -23,6 +23,15 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Set mock environment for tests
+        run: |
+          echo "NEXT_PUBLIC_SUPABASE_URL=https://mock.supabase.co" >> $GITHUB_ENV
+          echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=mock-anon-key-for-build-that-is-over-one-hundred-characters-long-to-satisfy-validation-requirements-in-github-actions" >> $GITHUB_ENV
+          echo "SUPABASE_SERVICE_ROLE_KEY=mock-service-key-for-build-that-is-over-one-hundred-characters-long-to-satisfy-validation-requirements-in-github-actions" >> $GITHUB_ENV
+          echo "SUPABASE_URL=https://mock.supabase.co" >> $GITHUB_ENV
+          echo "SUPABASE_ANON_KEY=mock-anon-key-for-build-that-is-over-one-hundred-characters-long-to-satisfy-validation-requirements-in-github-actions" >> $GITHUB_ENV
+          echo "NODE_ENV=test" >> $GITHUB_ENV
+
       - name: Lint check
         run: npm run lint
 
@@ -55,22 +64,44 @@ jobs:
         run: npm ci
 
       - name: Build development container
+        env:
+          # Mock environment variables for container builds (100+ char requirement)
+          NEXT_PUBLIC_SUPABASE_URL: https://mock.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: mock-anon-key-for-build-that-is-over-one-hundred-characters-long-to-satisfy-validation-requirements-in-github-actions
+          SUPABASE_SERVICE_ROLE_KEY: mock-service-key-for-build-that-is-over-one-hundred-characters-long-to-satisfy-validation-requirements-in-github-actions
+          SUPABASE_URL: https://mock.supabase.co  
+          SUPABASE_ANON_KEY: mock-anon-key-for-build-that-is-over-one-hundred-characters-long-to-satisfy-validation-requirements-in-github-actions
         run: docker build --target development -t smart-dashboard:dev .
 
       - name: Test development container
         run: |
-          docker run -d --name test-dev -p 3001:3000 smart-dashboard:dev
+          docker run -d --name test-dev -p 3001:3000 \
+            -e NEXT_PUBLIC_SUPABASE_URL=https://mock.supabase.co \
+            -e NEXT_PUBLIC_SUPABASE_ANON_KEY=mock-anon-key-for-build-that-is-over-one-hundred-characters-long-to-satisfy-validation-requirements-in-github-actions \
+            -e SUPABASE_SERVICE_ROLE_KEY=mock-service-key-for-build-that-is-over-one-hundred-characters-long-to-satisfy-validation-requirements-in-github-actions \
+            smart-dashboard:dev
           sleep 30
           curl -f http://localhost:3001 || exit 1
           docker stop test-dev
           docker rm test-dev
 
-      - name: Build production container
+      - name: Build production container  
+        env:
+          # Mock environment variables for container builds (100+ char requirement)
+          NEXT_PUBLIC_SUPABASE_URL: https://mock.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: mock-anon-key-for-build-that-is-over-one-hundred-characters-long-to-satisfy-validation-requirements-in-github-actions
+          SUPABASE_SERVICE_ROLE_KEY: mock-service-key-for-build-that-is-over-one-hundred-characters-long-to-satisfy-validation-requirements-in-github-actions
+          SUPABASE_URL: https://mock.supabase.co
+          SUPABASE_ANON_KEY: mock-anon-key-for-build-that-is-over-one-hundred-characters-long-to-satisfy-validation-requirements-in-github-actions
         run: npm run docker:prod:build
 
       - name: Test production container
         run: |
-          docker run -d --name test-prod -p 3002:3000 smart-dashboard:latest
+          docker run -d --name test-prod -p 3002:3000 \
+            -e NEXT_PUBLIC_SUPABASE_URL=https://mock.supabase.co \
+            -e NEXT_PUBLIC_SUPABASE_ANON_KEY=mock-anon-key-for-build-that-is-over-one-hundred-characters-long-to-satisfy-validation-requirements-in-github-actions \
+            -e SUPABASE_SERVICE_ROLE_KEY=mock-service-key-for-build-that-is-over-one-hundred-characters-long-to-satisfy-validation-requirements-in-github-actions \
+            smart-dashboard:latest
           sleep 20
           curl -f http://localhost:3002 || exit 1
           docker stop test-prod
@@ -94,6 +125,14 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Set mock environment for E2E tests
+        run: |
+          echo "NEXT_PUBLIC_SUPABASE_URL=https://mock.supabase.co" >> $GITHUB_ENV
+          echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=mock-anon-key-for-build-that-is-over-one-hundred-characters-long-to-satisfy-validation-requirements-in-github-actions" >> $GITHUB_ENV
+          echo "SUPABASE_SERVICE_ROLE_KEY=mock-service-key-for-build-that-is-over-one-hundred-characters-long-to-satisfy-validation-requirements-in-github-actions" >> $GITHUB_ENV
+          echo "SUPABASE_URL=https://mock.supabase.co" >> $GITHUB_ENV
+          echo "SUPABASE_ANON_KEY=mock-anon-key-for-build-that-is-over-one-hundred-characters-long-to-satisfy-validation-requirements-in-github-actions" >> $GITHUB_ENV
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
