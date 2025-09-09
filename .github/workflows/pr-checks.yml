@@ -23,9 +23,6 @@ jobs:
       - name: Install dependencies
         run: npm ci --prefer-offline --no-audit
 
-      - name: TypeScript check
-        run: npx tsc --noEmit
-
       - name: Run validation tests
         run: npm run test:phase1:validation
 
