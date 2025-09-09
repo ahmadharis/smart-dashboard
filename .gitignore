@@ -164,6 +164,11 @@ supabase/.temp
 .env.test
 playwright-report/
 test-results/
+/coverage
+/junit.xml
+/.nyc_output
+/playwright/.cache/
+public/mockServiceWorker.js
 
 # Backup files
 *.orig
