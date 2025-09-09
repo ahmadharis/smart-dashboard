@@ -1,0 +1,110 @@
+name: Main Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  quality-and-tests:
+    name: Code Quality & Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint check
+        run: npm run lint
+
+      - name: TypeScript check
+        run: npx tsc --noEmit
+
+      - name: Run Phase 1 tests
+        run: npm run test:phase1
+
+      - name: Run UI component tests
+        run: npm run test:phase1:ui
+
+  build-containers:
+    name: Build & Test Containers
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: quality-and-tests
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build development container
+        run: docker build --target development -t smart-dashboard:dev .
+
+      - name: Test development container
+        run: |
+          docker run -d --name test-dev -p 3001:3000 smart-dashboard:dev
+          sleep 30
+          curl -f http://localhost:3001 || exit 1
+          docker stop test-dev
+          docker rm test-dev
+
+      - name: Build production container
+        run: npm run docker:prod:build
+
+      - name: Test production container
+        run: |
+          docker run -d --name test-prod -p 3002:3000 smart-dashboard:latest
+          sleep 20
+          curl -f http://localhost:3002 || exit 1
+          docker stop test-prod
+          docker rm test-prod
+
+  e2e-tests:
+    name: End-to-End Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: build-containers
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+
+      - name: Run E2E tests
+        run: npm run test:e2e
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
