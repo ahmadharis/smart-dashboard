@@ -80,8 +80,51 @@ jobs:
             -e NEXT_PUBLIC_SUPABASE_ANON_KEY=mock-anon-key-for-build-that-is-over-one-hundred-characters-long-to-satisfy-validation-requirements-in-github-actions \
             -e SUPABASE_SERVICE_ROLE_KEY=mock-service-key-for-build-that-is-over-one-hundred-characters-long-to-satisfy-validation-requirements-in-github-actions \
             smart-dashboard:dev
-          sleep 30
-          curl -f http://localhost:3001 || exit 1
+          
+          # Wait for container to be ready with health check
+          echo "Waiting for development container to be ready..."
+          for i in {1..60}; do
+            if docker logs test-dev 2>&1 | grep -q "Ready in\|localhost:3000\|server started on"; then
+              echo "Container logs show server is starting..."
+              break
+            fi
+            if [ $i -eq 60 ]; then
+              echo "Container failed to show ready state in logs"
+              docker logs test-dev
+              exit 1
+            fi
+            sleep 2
+          done
+          
+          # Test container connectivity using multiple approaches
+          echo "Testing container connectivity..."
+          for i in {1..15}; do
+            # Try localhost first, then 127.0.0.1, then docker exec
+            if curl -f --connect-timeout 5 --max-time 10 http://localhost:3001/ > /dev/null 2>&1; then
+              echo "✅ Development container responding on localhost!"
+              break
+            elif curl -f --connect-timeout 5 --max-time 10 http://127.0.0.1:3001/ > /dev/null 2>&1; then
+              echo "✅ Development container responding on 127.0.0.1!"
+              break
+            elif docker exec test-dev curl -f --connect-timeout 5 --max-time 10 http://localhost:3000/ > /dev/null 2>&1; then
+              echo "✅ Development container responding internally!"
+              break
+            else
+              if [ $i -eq 15 ]; then
+                echo "❌ Container failed to respond after 30 seconds"
+                echo "=== Container Logs ==="
+                docker logs test-dev
+                echo "=== Container Status ==="
+                docker ps -a --filter name=test-dev
+                echo "=== Port Check ==="
+                netstat -tlnp | grep :3001 || echo "Port 3001 not listening"
+                exit 1
+              fi
+              echo "Attempt $i/15: Container not ready, waiting 2s..."
+              sleep 2
+            fi
+          done
+          
           docker stop test-dev
           docker rm test-dev
 
@@ -102,8 +145,51 @@ jobs:
             -e NEXT_PUBLIC_SUPABASE_ANON_KEY=mock-anon-key-for-build-that-is-over-one-hundred-characters-long-to-satisfy-validation-requirements-in-github-actions \
             -e SUPABASE_SERVICE_ROLE_KEY=mock-service-key-for-build-that-is-over-one-hundred-characters-long-to-satisfy-validation-requirements-in-github-actions \
             smart-dashboard:latest
-          sleep 20
-          curl -f http://localhost:3002 || exit 1
+          
+          # Wait for container to be ready with health check
+          echo "Waiting for production container to be ready..."
+          for i in {1..45}; do
+            if docker logs test-prod 2>&1 | grep -q "Ready in\|localhost:3000\|server started on\|▲ Next.js"; then
+              echo "Container logs show server is starting..."
+              break
+            fi
+            if [ $i -eq 45 ]; then
+              echo "Container failed to show ready state in logs"
+              docker logs test-prod
+              exit 1
+            fi
+            sleep 2
+          done
+          
+          # Test container connectivity using multiple approaches
+          echo "Testing container connectivity..."
+          for i in {1..15}; do
+            # Try localhost first, then 127.0.0.1, then docker exec
+            if curl -f --connect-timeout 5 --max-time 10 http://localhost:3002/ > /dev/null 2>&1; then
+              echo "✅ Production container responding on localhost!"
+              break
+            elif curl -f --connect-timeout 5 --max-time 10 http://127.0.0.1:3002/ > /dev/null 2>&1; then
+              echo "✅ Production container responding on 127.0.0.1!"
+              break
+            elif docker exec test-prod curl -f --connect-timeout 5 --max-time 10 http://localhost:3000/ > /dev/null 2>&1; then
+              echo "✅ Production container responding internally!"
+              break
+            else
+              if [ $i -eq 15 ]; then
+                echo "❌ Container failed to respond after 30 seconds"
+                echo "=== Container Logs ==="
+                docker logs test-prod
+                echo "=== Container Status ==="
+                docker ps -a --filter name=test-prod
+                echo "=== Port Check ==="
+                netstat -tlnp | grep :3002 || echo "Port 3002 not listening"
+                exit 1
+              fi
+              echo "Attempt $i/15: Container not ready, waiting 2s..."
+              sleep 2
+            fi
+          done
+          
           docker stop test-prod
           docker rm test-prod
 
