@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server"
 import { saveDataFile } from "@/lib/data-utils"
-import { createSecureResponse, sanitizeString } from "@/lib/security"
+import { createSecureResponse, sanitizeString, validateDashboardOwnership } from "@/lib/security"
 import { parseXMLToJSON } from "@/lib/xml-parser"
 import { createClient } from "@supabase/supabase-js"
 
@@ -88,6 +88,19 @@ export async function POST(request: NextRequest) {
         },
         400,
       )
+    }
+
+    // Validate dashboard ownership if dashboard ID is provided
+    if (dashboardId) {
+      const dashboardValidation = await validateDashboardOwnership(dashboardId, tenantId)
+      if (!dashboardValidation.isValid) {
+        return createSecureResponse(
+          {
+            error: dashboardValidation.error,
+          },
+          404,
+        )
+      }
     }
 
     // Parse XML from request body

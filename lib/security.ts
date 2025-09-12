@@ -175,3 +175,32 @@ export function setCorsHeaders(response: NextResponse): NextResponse {
 
   return response
 }
+
+export async function validateDashboardOwnership(
+  dashboardId: string,
+  tenantId: string,
+): Promise<{ isValid: boolean; error?: string }> {
+  if (!isValidUUID(dashboardId)) {
+    return { isValid: false, error: "Invalid dashboard ID format" }
+  }
+
+  try {
+    const supabase = createServiceClient()
+
+    const { data, error } = await supabase
+      .from("dashboards")
+      .select("id")
+      .eq("id", dashboardId)
+      .eq("tenant_id", tenantId)
+      .single()
+
+    if (error || !data) {
+      return { isValid: false, error: "Dashboard does not exist" }
+    }
+
+    return { isValid: true }
+  } catch (error) {
+    console.error("Dashboard validation error:", error)
+    return { isValid: false, error: "Dashboard validation failed" }
+  }
+}
