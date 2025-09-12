@@ -144,11 +144,10 @@ jest.mock('@supabase/supabase-js', () => ({
   createClient: jest.fn().mockImplementation(createMockSupabaseClient),
 }))
 
-// Mock @supabase/auth-helpers-nextjs
-jest.mock('@supabase/auth-helpers-nextjs', () => ({
-  createServerComponentClient: jest.fn().mockImplementation(createMockSupabaseClient),
-  createRouteHandlerClient: jest.fn().mockImplementation(createMockSupabaseClient),
-  createMiddlewareClient: jest.fn().mockImplementation(createMockSupabaseClient),
+// Mock @supabase/ssr (modern replacement for auth-helpers-nextjs)
+jest.mock('@supabase/ssr', () => ({
+  createServerClient: jest.fn().mockImplementation(() => createMockSupabaseClient()),
+  createBrowserClient: jest.fn().mockImplementation(() => createMockSupabaseClient()),
 }))
 
 // Mock our custom Supabase utilities

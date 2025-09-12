@@ -24,27 +24,31 @@ COPY pnpm-lock.yaml* ./
 # =============================================================================
 FROM base AS development
 
-# Install all dependencies (including devDependencies)
+# Create non-root user for security BEFORE installing dependencies
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nextjs
+
+# Install all dependencies (including devDependencies) as root first
 # Use npm install if no lock file exists, otherwise use npm ci
 RUN if [ -f package-lock.json ]; then npm ci; \
     elif [ -f pnpm-lock.yaml ]; then corepack enable && pnpm install; \
     else npm install; fi
 
-# Create non-root user for security
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
-
-# Copy source code and set permissions
+# Copy source code with proper ownership
 COPY --chown=nextjs:nodejs . .
 
-# Create .next directory with proper permissions
-RUN mkdir -p .next && chown -R nextjs:nodejs .next
+# Create necessary directories and ensure proper permissions
+RUN mkdir -p .next && \
+    chown -R nextjs:nodejs . && \
+    chmod -R 755 . && \
+    chown -R nextjs:nodejs /app/node_modules
 
+# Switch to non-root user
 USER nextjs
 
 EXPOSE 3000
 
-# Set environment to development
+# Set environment to development  
 ENV NODE_ENV=development
 ENV NEXT_TELEMETRY_DISABLED=1
 
@@ -79,13 +83,27 @@ COPY . .
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
+# Set required environment variables for build process
+# These are build-time requirements, runtime values can be overridden
+ARG NEXT_PUBLIC_SUPABASE_URL=https://mock.supabase.co
+ARG NEXT_PUBLIC_SUPABASE_ANON_KEY=mock-anon-key-for-build-that-is-over-one-hundred-characters-long-to-satisfy-validation-requirements-in-github-actions
+ARG SUPABASE_URL=https://mock.supabase.co
+ARG SUPABASE_SERVICE_ROLE_KEY=mock-service-key-for-build-that-is-over-one-hundred-characters-long-to-satisfy-validation-requirements-in-github-actions
+ARG SUPABASE_ANON_KEY=mock-anon-key-for-build-that-is-over-one-hundred-characters-long-to-satisfy-validation-requirements-in-github-actions
+
+ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
+ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
+ENV SUPABASE_URL=$SUPABASE_URL
+ENV SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY
+ENV SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY
+
 # Build the application
 RUN npm run build
 
 # =============================================================================
 # Production Stage - Minimal runtime environment
 # =============================================================================
-FROM node:18-alpine AS production
+FROM node:20-alpine AS production
 
 WORKDIR /app
 
