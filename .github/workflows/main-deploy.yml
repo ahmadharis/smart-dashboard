@@ -84,12 +84,31 @@ jobs:
           # Wait for container to be ready with health check
           echo "Waiting for development container to be ready..."
           for i in {1..60}; do
-            if docker logs test-dev 2>&1 | grep -q "Ready in\|localhost:3000\|server started on"; then
-              echo "Container logs show server is starting..."
+            # Check if container has exited
+            if ! docker ps --filter name=test-dev --filter status=running | grep -q test-dev; then
+              echo "❌ Container has exited unexpectedly!"
+              echo "=== Container Logs ==="
+              docker logs test-dev
+              echo "=== Container Status ==="
+              docker ps -a --filter name=test-dev
+              exit 1
+            fi
+            
+            # Check for successful startup indicators
+            if docker logs test-dev 2>&1 | grep -q "Ready in\|Local:.*localhost:3000\|server started on\|▲ Next.js.*Local"; then
+              echo "✅ Container logs show server is ready!"
               break
             fi
+            
+            # Check for error indicators
+            if docker logs test-dev 2>&1 | grep -q "Error:\|EACCES\|permission denied\|Cannot\|Failed"; then
+              echo "❌ Container startup errors detected!"
+              docker logs test-dev
+              exit 1
+            fi
+            
             if [ $i -eq 60 ]; then
-              echo "Container failed to show ready state in logs"
+              echo "❌ Container failed to show ready state in logs after 2 minutes"
               docker logs test-dev
               exit 1
             fi
@@ -149,12 +168,31 @@ jobs:
           # Wait for container to be ready with health check
           echo "Waiting for production container to be ready..."
           for i in {1..45}; do
-            if docker logs test-prod 2>&1 | grep -q "Ready in\|localhost:3000\|server started on\|▲ Next.js"; then
-              echo "Container logs show server is starting..."
+            # Check if container has exited
+            if ! docker ps --filter name=test-prod --filter status=running | grep -q test-prod; then
+              echo "❌ Production container has exited unexpectedly!"
+              echo "=== Container Logs ==="
+              docker logs test-prod
+              echo "=== Container Status ==="
+              docker ps -a --filter name=test-prod
+              exit 1
+            fi
+            
+            # Check for successful startup indicators  
+            if docker logs test-prod 2>&1 | grep -q "Ready in\|server started on\|▲ Next.js.*started\|Listening on port"; then
+              echo "✅ Production container logs show server is ready!"
               break
             fi
+            
+            # Check for error indicators
+            if docker logs test-prod 2>&1 | grep -q "Error:\|EACCES\|permission denied\|Cannot\|Failed\|EXIT"; then
+              echo "❌ Production container startup errors detected!"
+              docker logs test-prod
+              exit 1
+            fi
+            
             if [ $i -eq 45 ]; then
-              echo "Container failed to show ready state in logs"
+              echo "❌ Production container failed to show ready state in logs after 1.5 minutes"
               docker logs test-prod
               exit 1
             fi
