@@ -12,6 +12,20 @@ const { execSync } = require('child_process');
 console.log('🧪 Running Phase 1 Tests (No Database Dependencies)');
 console.log('=' .repeat(60));
 
+// First run linting as part of Phase 1 quality checks
+console.log('\n🔍 ESLint Code Quality Check');
+console.log('-'.repeat(50));
+try {
+  execSync('npm run lint', { 
+    encoding: 'utf-8',
+    stdio: 'inherit'
+  });
+  console.log('✅ LINTING: Code quality checks passed (warnings allowed)');
+} catch (error) {
+  console.log('❌ LINTING: Critical linting errors found');
+  process.exit(1);
+}
+
 const testSuites = [
   {
     name: 'UI Components',
