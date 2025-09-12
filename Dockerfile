@@ -4,7 +4,7 @@
 # =============================================================================
 # Base Stage - Common dependencies and setup
 # =============================================================================
-FROM node:18-alpine AS base
+FROM node:20-alpine AS base
 
 # Install system dependencies for native modules
 RUN apk add --no-cache \
