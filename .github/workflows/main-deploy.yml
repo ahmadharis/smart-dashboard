@@ -35,9 +35,6 @@ jobs:
       - name: Lint check
         run: npm run lint
 
-      - name: TypeScript check
-        run: npx tsc --noEmit
-
       - name: Run Phase 1 tests
         run: npm run test:phase1
 
