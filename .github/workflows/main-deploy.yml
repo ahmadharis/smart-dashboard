@@ -3,9 +3,6 @@ name: Main Deploy
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
-    # TODO: Remove pull_request trigger after testing main-deploy workflow
 
 jobs:
   quality-and-tests:
