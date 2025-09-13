@@ -143,7 +143,7 @@ npm run start    # Production server
 # Testing
 npm run test:phase1:validation  # Core validation tests (Phase 1)
 npm run test:phase1:ui          # UI component tests (Phase 1)
-npm run test:e2e                # End-to-end tests
+npm run test:e2e                # End-to-end tests (local only)
 npm run test:phase1             # All Phase 1 tests
 
 # Docker
@@ -161,17 +161,17 @@ npm run docker:prod             # Production container run
   - Build validation
   - Triggers on PRs to main branch
 
-- **Main Deploy** (`main-deploy.yml`): Comprehensive validation (~12-18 minutes)
+- **Main Deploy** (`main-deploy.yml`): Comprehensive validation (~5-8 minutes)
   - Full test suite (Phase 1)
   - Development & production container builds
-  - End-to-end testing with Playwright
+  - Container smoke testing
   - Triggers on pushes to main branch
 
 ### Workflow Strategy
 - **PR workflow**: Essential checks only for fast feedback
 - **Main workflow**: Complete validation before deployment
 - **Container testing**: Both dev and prod builds validated
-- **E2E testing**: Multi-browser testing with dynamic detection
+- **E2E testing**: Local development only (removed from CI)
 
 ## Critical Security Notes
 
@@ -196,11 +196,12 @@ npm run docker:prod             # Production container run
 
 **Phase 1 Success**: 184+ tests passing, 75% success rate, zero database connections ✅
 
-### ✅ E2E Tests - Working (Browser Detection Fixed)
-- **Basic functionality**: 6/6 available browsers pass ✅
-- **Browser detection**: Automatically skips unavailable browsers (e.g., Edge) ✅
-- **Database-dependent tests**: Expected failures (need Phase 2 setup)
-- **Authentication flows**: Redirect to login (no test auth yet)
+### 🔄 E2E Tests - Local Development Only
+- **Status**: Removed from CI due to database infrastructure requirements
+- **Local functionality**: Multi-browser testing with dynamic detection ✅
+- **Browser compatibility**: 6/6 available browsers locally ✅ 
+- **Database dependency**: Requires real Supabase connection
+- **Future roadmap**: Dedicated test database infrastructure planned
 
 ### 🚫 Phase 2 - Not Implemented (Database Integration)
 **Properly excluded from Phase 1**:
@@ -218,13 +219,14 @@ npm run test:phase1:validation   # 143/143 validation tests ✅
 
 # All Tests (includes Phase 2 failures)  
 npm test                         # ~75% pass (Phase 1 constraints)
-npm run test:e2e                 # Basic E2E working, auth tests fail
+npm run test:e2e                 # E2E tests (local development only)
 npm run test:coverage            # Coverage reports
 ```
 
 **Implementation Notes**:
 - All database-dependent tests moved to Phase 2 using `describe.skip()`
 - Comprehensive Supabase mocking prevents real DB connections
+- **E2E tests removed from CI**: Require real database infrastructure, maintained for local development
 - Test infrastructure ready for Phase 2 database integration
 
 ## Working with This Codebase
