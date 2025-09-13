@@ -235,5 +235,6 @@ npm run test:coverage            # Coverage reports
 4. **Review database relationships** - Understand how tenant isolation works
 5. **Test across modes** - Normal, TV mode, and public sharing all work differently
 6. **Run Phase 1 tests** - Verify core functionality before making changes
+7. **Clean up all temporary code** - Always remove any temporary files, debug scripts, build artifacts, or experimental code that are not required for the final implementation (test-*.sh, debug-*.js, smoke.spec.ts, *.tsbuildinfo, etc.) to keep commits clean and focused
 
 This documentation is shared across the team. Update it when adding new patterns or changing core architecture.
