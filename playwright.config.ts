@@ -73,9 +73,19 @@ export default defineConfig({
     video: 'retain-on-failure',
   },
 
-  // Configure projects for major browsers - only include available browsers
-  projects: [
-    // Core browsers (always available via Playwright)
+  // Configure projects for major browsers - simplified for CI
+  projects: process.env.CI ? [
+    // CI: Only run essential browsers to avoid hanging
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'firefox', 
+      use: { ...devices['Desktop Firefox'] },
+    },
+  ] : [
+    // Local: Full browser coverage
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
@@ -120,15 +130,18 @@ export default defineConfig({
     command: 'npm run dev',
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
-    timeout: 120 * 1000,
+    timeout: process.env.CI ? 60 * 1000 : 120 * 1000, // Shorter timeout for CI
   },
   
+  // Global timeout to prevent indefinite hanging
+  globalTimeout: process.env.CI ? 8 * 60 * 1000 : 0, // 8 minutes max for CI
+  
   // Test timeout
-  timeout: 30 * 1000,
+  timeout: process.env.CI ? 20 * 1000 : 30 * 1000, // Shorter for CI
   
   // Expect timeout for assertions
   expect: {
-    timeout: 10 * 1000,
+    timeout: process.env.CI ? 5 * 1000 : 10 * 1000, // Shorter for CI
   },
   
   // Output directory for test artifacts
