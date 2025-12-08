@@ -132,7 +132,7 @@ export function transformDataForCharts(rawData: any): DataPoint[] {
 
 export async function getDataFiles(tenantId: string, dashboardId?: string | null): Promise<DataFile[]> {
   try {
-    const supabase = createClient()
+    const supabase = await createClient()
 
     let query = supabase
       .from("data_files")
@@ -183,7 +183,7 @@ export async function saveDataFile(
   fieldOrder?: string[], // Added optional field order parameter
 ): Promise<{ success: boolean; dashboard_id?: string } | boolean> {
   try {
-    const supabase = createClient()
+    const supabase = await createClient()
 
     let finalDashboardId = dashboardId
 
@@ -302,7 +302,7 @@ export async function saveDataFile(
 
 export async function deleteDataFile(filename: string, tenantId: string): Promise<boolean> {
   try {
-    const supabase = createClient()
+    const supabase = await createClient()
     const { error } = await supabase.from("data_files").delete().eq("filename", filename).eq("tenant_id", tenantId) // Filter by tenant
 
     if (error) {

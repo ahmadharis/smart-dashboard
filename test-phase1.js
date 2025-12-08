@@ -64,28 +64,86 @@ testSuites.forEach(suite => {
     if (suite.testName) {
       cmd += ` --testNamePattern="${suite.testName}"`;
     }
-    cmd += ' --silent --verbose';
+    cmd += ' --json --verbose';
     
     const output = execSync(cmd, { 
       encoding: 'utf-8',
       stdio: 'pipe'
     });
     
-    // Parse Jest output for pass/fail counts
-    const testMatch = output.match(/Tests:\s+(\d+)\s+failed.*?(\d+)\s+passed/);
-    if (testMatch) {
-      const failed = parseInt(testMatch[1]);
-      const passed = parseInt(testMatch[2]);
-      totalFailed += failed;
-      totalPassed += passed;
+    // Parse JSON output from Jest
+    try {
+      // Jest JSON output comes after the npm output, so extract just the JSON part
+      const lines = output.split('\n');
+      let jsonOutput = null;
       
-      if (failed === 0) {
-        console.log(`✅ PASSED: ${passed} tests`);
-      } else {
-        console.log(`⚠️  PARTIAL: ${passed} passed, ${failed} failed`);
+      // Find the line that contains the JSON test results
+      for (let i = lines.length - 1; i >= 0; i--) {
+        const line = lines[i].trim();
+        if (line.startsWith('{') && line.includes('"testResults"')) {
+          jsonOutput = JSON.parse(line);
+          break;
+        }
       }
-    } else {
-      console.log('✅ PASSED: All tests successful');
+      
+      if (jsonOutput && jsonOutput.testResults) {
+        let suitePassed = 0;
+        let suiteFailed = 0;
+        
+        jsonOutput.testResults.forEach(testFile => {
+          testFile.assertionResults.forEach(test => {
+            if (test.status === 'passed') {
+              suitePassed++;
+            } else if (test.status === 'failed') {
+              suiteFailed++;
+            }
+          });
+        });
+        
+        totalPassed += suitePassed;
+        totalFailed += suiteFailed;
+        
+        if (suiteFailed === 0) {
+          console.log(`✅ PASSED: ${suitePassed} tests`);
+        } else {
+          console.log(`⚠️  PARTIAL: ${suitePassed} passed, ${suiteFailed} failed`);
+        }
+      } else {
+        // Fallback - parse text output if JSON parsing fails
+        const passedMatch = output.match(/Tests:\s+(?:(\d+)\s+failed,?\s+)?(\d+)\s+passed/);
+        if (passedMatch) {
+          const failed = parseInt(passedMatch[1] || '0');
+          const passed = parseInt(passedMatch[2]);
+          totalFailed += failed;
+          totalPassed += passed;
+          
+          if (failed === 0) {
+            console.log(`✅ PASSED: ${passed} tests`);
+          } else {
+            console.log(`⚠️  PARTIAL: ${passed} passed, ${failed} failed`);
+          }
+        } else if (output.includes('PASS') && !output.includes('FAIL')) {
+          totalPassed += 1;
+          console.log('✅ PASSED: Test suite completed successfully');
+        } else {
+          console.log('⚠️  UNKNOWN: Could not parse test results');
+        }
+      }
+    } catch (parseError) {
+      // Final fallback - simple text parsing
+      const passedMatch = output.match(/Tests:\s+(?:(\d+)\s+failed,?\s+)?(\d+)\s+passed/);
+      if (passedMatch) {
+        const failed = parseInt(passedMatch[1] || '0');
+        const passed = parseInt(passedMatch[2]);
+        totalFailed += failed;
+        totalPassed += passed;
+        console.log(`✅ PARSED: ${passed} tests passed`);
+      } else if (output.includes('PASS')) {
+        totalPassed += 1;
+        console.log('✅ PASSED: Test execution successful');
+      } else {
+        console.log('⚠️  UNKNOWN: Could not parse test results');
+      }
     }
     
   } catch (error) {
